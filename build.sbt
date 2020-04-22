@@ -14,6 +14,7 @@ scalacOptions in ThisBuild ++= Seq(
 val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "com.chuusai" %% "shapeless" % "2.3.3",
+    "org.scalatest" % "scalatest_2.13" % "3.1.1" % "test",
   )
 )
 
