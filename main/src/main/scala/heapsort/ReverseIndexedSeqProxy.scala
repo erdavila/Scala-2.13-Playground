@@ -2,7 +2,7 @@ package heapsort
 
 import scala.collection.mutable
 
-private class ReverseIndexedSeqProxy[A](underlyingSeq: mutable.IndexedSeq[A]) extends mutable.IndexedSeq[A] {
+private[heapsort] class ReverseIndexedSeqProxy[A](underlyingSeq: mutable.IndexedSeq[A]) extends mutable.IndexedSeq[A] {
   override def apply(i: Int): A =
     underlyingSeq(translateIndex(i))
 

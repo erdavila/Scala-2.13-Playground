@@ -2,7 +2,7 @@ name in ThisBuild := "Scala-2.13-Playground"
 
 version in ThisBuild := "0.1"
 
-scalaVersion in ThisBuild := "2.13.1"
+scalaVersion in ThisBuild := "2.13.2"
 scalacOptions in ThisBuild ++= Seq(
   "-deprecation",
   "-feature",
