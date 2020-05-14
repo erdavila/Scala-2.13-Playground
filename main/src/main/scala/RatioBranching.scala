@@ -24,7 +24,6 @@ object RatioBranching {
     } else if (diff1 > diff2) {
       (candidate2, None)
     } else {
-      println("X")
       (candidate1, Some(candidate2))
     }
   }
