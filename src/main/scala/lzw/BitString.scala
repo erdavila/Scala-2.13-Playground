@@ -9,8 +9,8 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
   require(
     units.lastOption
       .map { bits =>
-        val unusedLength = UnitSize - len % UnitSize
-        unusedLength == UnitSize || ((bits >>> unusedLength) == 0)
+        val usedLength = len % UnitSize
+        usedLength == 0 || (bits >>> usedLength) == 0
       }
       .forall(identity)
   )
@@ -18,6 +18,8 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
   @inline def length: Int = len
 
   def apply(i: Int): Boolean = {
+    require(i >= 0)
+    require(i < length)
     val unitIndex = i / UnitSize
     val bitIndex = i % UnitSize
     val bit = (units(unitIndex) >> bitIndex) & 0x1
@@ -29,9 +31,9 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
     else if (lsb.length == 0) this
     else {
       val len = this.length + lsb.length
-      val units = new Array[UnitType](len)
-      copyBits(this.units, 0, units, 0, this.length)
-      copyBits(lsb.units, 0, units, this.length, len - this.length)
+      val units = new Array[UnitType](requiredUnitsForLength(len))
+      copyBits(lsb.units, 0, units, 0, lsb.length)
+      copyBits(this.units, 0, units, lsb.length, this.length)
       new BitString(units, len)
     }
 
@@ -53,8 +55,25 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
       BitString.empty
     } else {
       val units = new Array[UnitType](requiredUnitsForLength(len))
-      copyBits(this.units, from, units, 0, len)
+      copyBits(this.units, effectiveFrom, units, 0, len)
       new BitString(units, len)
+    }
+  }
+
+  def splitLsbAt(n: Int): (BitString, BitString) = {
+    require(n >= 0)
+    if (n == 0) (this, BitString.empty)
+    else if (n >= length) (BitString.empty, this)
+    else (slice(n, length), slice(0, n))
+  }
+
+  def splitMsbAt(n: Int): (BitString, BitString) = {
+    require(n >= 0)
+    if (n == 0) (BitString.empty, this)
+    else if (n >= length) (this, BitString.empty)
+    else {
+      val splitPoint = length - n
+      (slice(splitPoint, length), slice(0, splitPoint))
     }
   }
 
@@ -81,9 +100,14 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
     loop(fromBitIndex, toBitIndex, count)
   }
 
-  override def equals(o: Any): Boolean = ???
+  override def equals(other: Any): Boolean =
+    other match {
+      case that: BitString => this.length == that.length && this.units.sameElements(that.units)
+      case _ => false
+    }
 
-  override def hashCode(): Int = ???
+  override def hashCode(): Int =
+    len.hashCode() * 31 + units.hashCode()
 
   override def toString: String =
     (0 until length)
