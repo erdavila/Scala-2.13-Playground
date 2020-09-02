@@ -2,7 +2,7 @@ package lzw
 
 import scala.annotation.tailrec
 
-class BitString private(private val units: Array[BitString.UnitType], len: Int) {
+class BitString private(private val units: Array[BitString.UnitType], len: Int) { self =>
   import BitString._
 
   require(requiredUnitsForLength(len) == units.length)
@@ -37,14 +37,6 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
       new BitString(units, len)
     }
 
-  def padMsb(len: Int, elem: Boolean): BitString = {
-    require(len >= 0)
-    val paddingLength = len - this.length
-    val units = Array.fill[UnitType](requiredUnitsForLength(paddingLength))(0)
-    val padding = new BitString(units, paddingLength)
-    padding ++ this
-  }
-
   def slice(from: Int, until: Int): BitString = {
     require(from >= 0)
     require(until >= from)
@@ -60,21 +52,79 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
     }
   }
 
-  def splitLsbAt(n: Int): (BitString, BitString) = {
-    require(n >= 0)
-    if (n == 0) (this, BitString.empty)
-    else if (n >= length) (BitString.empty, this)
-    else (slice(n, length), slice(0, n))
+  val lsb: End = new End {
+    override def bytes: Iterator[Byte] = {
+      val byteCount = requiredUnitsForLength(length, java.lang.Byte.SIZE)
+      val bytesPerUnit = UnitSize / java.lang.Byte.SIZE
+      units.iterator
+        .flatMap { unit =>
+          Iterator.iterate(unit)(_ >>> java.lang.Byte.SIZE)
+            .take(bytesPerUnit)
+        }
+        .take(byteCount)
+        .map(_.toByte)
+    }
+
+    override def extend(bits: BitString): BitString =
+      self ++ bits
+
+    override def splitAt(n: Int): (BitString, BitString) =
+      splitAtImpl(n) { (slice(n, length), slice(0, n)) }
+
+    override def otherEnd: End = msb
   }
 
-  def splitMsbAt(n: Int): (BitString, BitString) = {
-    require(n >= 0)
-    if (n == 0) (BitString.empty, this)
-    else if (n >= length) (this, BitString.empty)
-    else {
-      val splitPoint = length - n
-      (slice(splitPoint, length), slice(0, splitPoint))
+  val msb: End = new End {
+    override def bytes: Iterator[Byte] = {
+      val byteCount = requiredUnitsForLength(length, java.lang.Byte.SIZE)
+      val bytesPerUnit = UnitSize / java.lang.Byte.SIZE
+      val extendedBS = self.lsb.padTo(self.units.length * UnitSize)
+      extendedBS.units.reverseIterator
+        .flatMap { unit =>
+          Iterator.iterate(unit)(_ >>> java.lang.Byte.SIZE)
+            .take(bytesPerUnit)
+            .toSeq
+            .reverse
+        }
+        .take(byteCount)
+        .map(_.toByte)
     }
+
+    override def extend(bits: BitString): BitString =
+      bits ++ self
+
+    override def splitAt(n: Int): (BitString, BitString) =
+      splitAtImpl(n) {
+        val splitPoint = length - n
+        (slice(0, splitPoint), slice(splitPoint, length))
+      }
+
+    override def otherEnd: End = lsb
+  }
+
+  sealed trait End {
+    def bytes: Iterator[Byte]
+    def extend(bits: BitString): BitString
+
+    final def padTo(len: UnitType, elem: Boolean = false): BitString = {
+      require(len >= 0)
+      val paddingLength = len - self.length
+      val unit: UnitType = if (elem) 1 else 0
+      val units = Array.fill[UnitType](requiredUnitsForLength(paddingLength))(unit)
+      val bits = new BitString(units, paddingLength)
+      extend(bits)
+    }
+
+    def splitAt(n: Int): (BitString, BitString)
+
+    protected def splitAtImpl(n: Int)(result: => (BitString, BitString)): (BitString, BitString) = {
+      require(n >= 0)
+      if (n == 0) (self, BitString.empty)
+      else if (n >= length) (BitString.empty, self)
+      else result
+    }
+
+    def otherEnd: End
   }
 
   private def copyBits(fromUnits: Array[UnitType], fromBitIndex: Int, toUnits: Array[UnitType], toBitIndex: Int, count: Int): Unit = {
@@ -117,7 +167,10 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
 
   def toString(groupSize: Int): String =
     Iterator.range(0, length, groupSize)
-      .map(n => slice(n, n + groupSize).padMsb(groupSize, elem = false))
+      .map { n =>
+        slice(n, n + groupSize)
+          .msb.padTo(groupSize)
+      }
       .toSeq
       .reverse
       .mkString(" ")
@@ -133,6 +186,20 @@ object BitString {
   def from(short: Short): BitString = new BitString(Array(short & 0x0000FFFF), java.lang.Short.SIZE)
   def from(int: Int): BitString = new BitString(Array(int), java.lang.Integer.SIZE)
   def from(long: Long): BitString = new BitString(Array(long, long >>> java.lang.Integer.SIZE).map(_.toInt), java.lang.Long.SIZE)
+
+  def parse(str: String): BitString = {
+    val units = str.reverse
+      .grouped(UnitSize)
+      .map { str =>
+        str.reverse.foldLeft(0) { (int, char) =>
+          require(char == '0' || char == '1')
+          val bit = char - '0'
+          (int << 1) | bit
+        }
+      }
+      .toArray
+    new BitString(units, str.length)
+  }
 
   def requiredUnitsForLength(bitCount: Int, unitSize: Int = UnitSize): Int =
     (bitCount + (unitSize - 1)) / unitSize

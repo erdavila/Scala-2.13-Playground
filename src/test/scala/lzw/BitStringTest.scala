@@ -25,29 +25,29 @@ class BitStringTest extends AnyFunSuite {
     assert(bsLong.toString(8) == "00010001 00100010 00010000 11110100 01111101 11101001 10000001 00010101")
   }
 
-  test("splitLsbAt()") {
+  test("lsb.splitAt()") {
     val bs = BitString.from(1234567890123456789L)
 
     {
-      val (left, right) = bs.splitLsbAt(0)
+      val (left, right) = bs.lsb.splitAt(0)
       assert(left == bs)
       assert(right == BitString.empty)
     }
 
     {
-      val (left, right) = bs.splitLsbAt(12)
+      val (left, right) = bs.lsb.splitAt(12)
       assert(left.toString == "0001000100100010000100001111010001111101111010011000")
       assert(right.toString == "000100010101")
     }
 
     {
-      val (left, right) = bs.splitLsbAt(64)
+      val (left, right) = bs.lsb.splitAt(64)
       assert(left == BitString.empty)
       assert(right == bs)
     }
 
     {
-      val (left, right) = bs.splitLsbAt(65)
+      val (left, right) = bs.lsb.splitAt(65)
       assert(left == BitString.empty)
       assert(right == bs)
     }
