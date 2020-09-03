@@ -1,5 +1,6 @@
 package lzw.core.fixtures
 
+import lzw.core.fixtures.SteppedEncodingFixture.{Encode, Finish}
 import lzw.core.{CodeWidthOptions, Options}
 
 object Fixtures {
@@ -178,5 +179,134 @@ object Fixtures {
       "0100",
     ),
     dictionarySizeAtTheEnd = 9,
+  )
+
+  val VariableWidthCodesWithMaxWidth: SteppedEncodingFixture[Char] = SteppedEncodingFixture(
+    "variable-width codes with max width",
+    OptionsForVariableWidthCodes.copy(
+      codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
+        maximumWidth = Some(3)
+      )
+    ),
+    /*
+      *************** ENCODING ***************
+      Input | Output | Dict       | Code width
+      ------+--------+------------+----------
+            |        | b0: X      |
+            |        | b1: o      | 2
+      X     | b00    | b10: Xo    |
+      o     | b01    | b11: oX    |
+      Xo    | b10    | b100: XoX  | 3
+      XoX   | b100   | b101: XoXo |
+      oX    | b011   | b110: oXo  |
+      oXo   | b110   | b111: oXoX |
+      XoXo  | b101   | *AT MAX*   | 3
+      XoXo  | b101   |
+      XoXo  | b101   |
+
+      *************** DECODING ***************
+      Input | Output | Dict       | Code width
+      ------+--------+------------+----------
+            |        | b0: X      |
+            |        | b1: o      | 2
+      b00   | X      |            |
+      b01   | o      | b10: Xo    |
+      b10   | Xo     | b11: oX    | 3
+      b100  | ?      | b100: ?    |
+            | XoX    | b100: XoX  |
+      b011  | oX     | b101: XoXo |
+      b110  | ?      | b110: ?    |
+            | oXo    | b110: oXo  |
+      b101  | XoXo   | b111: oXoX | 3
+      b101  | XoXo   | *AT MAX*   |
+      b101  | XoXo   |
+     */
+    Seq(
+      Encode(
+        Seq(X, o, X, o, X, o, X, o, X, o, X, o),
+        expectedBits = Seq("00", "01", "10", "100", "011"),
+        assertions = Seq((_.maxCodeWidthExhausted, false), (_.statistics.dictionarySize, 7)),
+      ),
+      Encode(
+        Seq(X),
+        expectedBits = Seq("110"),
+        assertions = Seq((_.maxCodeWidthExhausted, /*CHANGED*/true), (_.statistics.dictionarySize, 8)),
+      ),
+      Encode(
+        Seq(o, X, o, X, o, X, o, X, o, X, o),
+        expectedBits = Seq("101", "101"),
+        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+      ),
+      Finish(
+        expectedBits = Seq("101"),
+        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+      )
+    ),
+    dictionarySizeAtTheEnd = 8,
+  )
+
+  val VariableWidthCodesWithMaxWidthAndEarlyChange: SteppedEncodingFixture[Char] = SteppedEncodingFixture(
+    "variable-width codes with max width and early change",
+    OptionsForVariableWidthCodes.copy(
+      codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
+        maximumWidth = Some(3),
+        earlyChange = true,
+      )
+    ),
+    /*
+      *************** ENCODING ***************
+      Input | Output | Dict       | Code width
+      ------+--------+------------+-----------
+            |        | b0: X      |
+            |        | b1: o      | 2
+      X     | b00    | b10: Xo    |
+      o     | b01    | b11: oX    | 3
+      Xo    | b010   | b100: XoX  |
+      XoX   | b100   | b101: XoXo |
+      oX    | b011   | b110: oXo  |
+      oXo   | b110   | b111: oXoX | 3
+      XoXo  | b101   | *AT MAX*
+      XoXo  | b101   |
+      XoXo  | b101   |
+
+      *************** DECODING ***************
+      Input | Output | Dict       | Code width
+      ------+--------+------------+-----------
+            |        | b0: X      |
+            |        | b1: o      | 2
+      b00   | X      |            |
+      b01   | o      | b10: Xo    | 3
+      b010  | Xo     | b11: oX    |
+      b100  | ?      | b100: ?    |
+            | XoX    | b100: XoX  |
+      b011  | oX     | b101: XoXo |
+      b110  | ?      | b110: ?    |
+            | oXo    | b110: oXo  | 3
+      b101  | XoXo   | b111: oXoX |
+      b101  | XoXo   | *AT MAX*
+      b101  | XoXo
+     */
+    Seq(
+      Encode(
+        Seq(X, o, X, o, X, o, X, o, X, o, X, o),
+        expectedBits = Seq("00", "01", "010", "100", "011"),
+        assertions = Seq((_.maxCodeWidthExhausted, false), (_.statistics.dictionarySize, 7)),
+      ),
+      Encode(
+        Seq(X),
+        expectedBits = Seq("110"),
+        assertions = Seq((_.maxCodeWidthExhausted, /*CHANGED*/true), (_.statistics.dictionarySize, 8)),
+      ),
+      Encode(
+        Seq(o, X, o, X, o, X, o, X, o, X, o),
+        expectedBits = Seq("101", "101"),
+        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+      ),
+      Finish(
+        expectedBits = Seq("101"),
+        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+      ),
+    ),
+    dictionarySizeAtTheEnd = 8,
   )
 }

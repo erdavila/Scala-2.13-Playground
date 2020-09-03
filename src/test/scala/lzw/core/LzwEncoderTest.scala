@@ -1,113 +1,23 @@
 package lzw.core
 
 import lzw.bits.BitString
-import lzw.core.fixtures.{Fixture, Fixtures}
+import lzw.core.fixtures.SteppedEncodingFixture.{Encode, Finish, Reset, Step}
+import lzw.core.fixtures.{Fixture, Fixtures, SteppedEncodingFixture}
 import org.scalatest.funsuite.AnyFunSuite
 
 class LzwEncoderTest extends AnyFunSuite {
 
-  import Fixtures.{OptionsForVariableWidthCodes, X, o}
+  import Fixtures.{X, o}
 
   testsFor(encoding(Fixtures.Empty))
   testsFor(encoding(Fixtures.FixedWidthCodes))
   testsFor(encoding(Fixtures.VariableWidthCodes))
   testsFor(encoding(Fixtures.VariableWidthCodesWithEarlyChange))
+  testsFor(encoding(Fixtures.VariableWidthCodesWithMaxWidth))
+  testsFor(encoding(Fixtures.VariableWidthCodesWithMaxWidthAndEarlyChange))
 
   testsFor(
-    encodingSteps(
-      "variable-width codes with max width",
-      OptionsForVariableWidthCodes.copy(
-        codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
-          maximumWidth = Some(3)
-        )
-      ),
-    )(
-      /*
-        Input | Output | Dict         | Code width
-        ------+--------+--------------+----------
-              |        | b0: X        |
-              |        | b1: o        | 2
-        X     | b00    | b10: Xo      |
-        o     | b01    | b11: oX      |
-        Xo    | b10    | b100: XoX    | 3
-        XoX   | b100   | b101: XoXo   |
-        oX    | b011   | b110: oXo    |
-        oXo   | b110   | b111: oXoX   |
-        XoXo  | b101   | *AT MAX*
-        XoXo  | b101   |
-        XoXo  | b101   |
-       */
-      Encode(
-        Seq(X, o, X, o, X, o, X, o, X, o, X, o),
-        expectedBits = Seq("00", "01", "10", "100", "011"),
-        assertions = Seq((_.maxCodeWidthExhausted, false), (_.statistics.dictionarySize, 7)),
-      ),
-      Encode(
-        Seq(X),
-        expectedBits = Seq("110"),
-        assertions = Seq((_.maxCodeWidthExhausted, /*CHANGED*/true), (_.statistics.dictionarySize, 8)),
-      ),
-      Encode(
-        Seq(o, X, o, X, o, X, o, X, o, X, o),
-        expectedBits = Seq("101", "101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
-      ),
-      Finish(
-        expectedBits = Seq("101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
-      )
-    )
-  )
-
-  testsFor(
-    encodingSteps(
-      "variable-width codes with max width and early change",
-      OptionsForVariableWidthCodes.copy(
-        codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
-          maximumWidth = Some(3),
-          earlyChange = true,
-        )
-      ),
-    )(
-      /*
-        Input | Output | Dict         | Code width
-        ------+--------+--------------+----------
-              |        | b0: X        |
-              |        | b1: o        | 2
-        X     | b00    | b10: Xo      |
-        o     | b01    | b11: oX      | 3
-        Xo    | b010   | b100: XoX    |
-        XoX   | b100   | b101: XoXo   |
-        oX    | b011   | b110: oXo    |
-        oXo   | b110   | b111: oXoX   |
-        XoXo  | b101   | *AT MAX*
-        XoXo  | b101   |
-        XoXo  | b101   |
-       */
-      Encode(
-        Seq(X, o, X, o, X, o, X, o, X, o, X, o),
-        expectedBits = Seq("00", "01", "010", "100", "011"),
-        assertions = Seq((_.maxCodeWidthExhausted, false), (_.statistics.dictionarySize, 7)),
-      ),
-      Encode(
-        Seq(X),
-        expectedBits = Seq("110"),
-        assertions = Seq((_.maxCodeWidthExhausted, /*CHANGED*/true), (_.statistics.dictionarySize, 8)),
-      ),
-      Encode(
-        Seq(o, X, o, X, o, X, o, X, o, X, o),
-        expectedBits = Seq("101", "101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
-      ),
-      Finish(
-        expectedBits = Seq("101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
-      ),
-    )
-  )
-
-  testsFor(
-    encodingSteps(
+    encoding(
       "max dictionary size",
       Options(
         alphabet = Seq(X, o),
@@ -142,7 +52,7 @@ class LzwEncoderTest extends AnyFunSuite {
   )
 
   testsFor(
-    encodingSteps(
+    encoding(
       "clear code",
       Options(
         alphabet = Seq(X, o),
@@ -221,7 +131,7 @@ class LzwEncoderTest extends AnyFunSuite {
   )
 
   testsFor(
-    encodingSteps(
+    encoding(
       "clear code and stop code",
       Options(
         alphabet = Seq(X, o),
@@ -294,16 +204,10 @@ class LzwEncoderTest extends AnyFunSuite {
       assert(encoder.statistics.dictionarySize == expectedDictionarySizeAtTheEnd)
     }
 
-  private sealed trait Step[Sym] {
-    val expectedBits: Seq[String]
-    val assertions: Seq[(LzwEncoder[Sym] => Any, Any)]
-  }
+  private def encoding[Sym](fixture: SteppedEncodingFixture[Sym]): Unit =
+    encoding(fixture.name, fixture.options)(fixture.steps: _*)
 
-  private case class Encode[Sym](inputSymbols: Seq[Sym], expectedBits: Seq[String], assertions: Seq[(LzwEncoder[Sym] => Any, Any)]) extends Step[Sym]
-  private case class Reset[Sym](expectedBits: Seq[String], assertions: Seq[(LzwEncoder[Sym] => Any, Any)]) extends Step[Sym]
-  private case class Finish[Sym](expectedBits: Seq[String], assertions: Seq[(LzwEncoder[Sym] => Any, Any)]) extends Step[Sym]
-
-  private def encodingSteps[Sym](testName: String, options: Options[Sym])(steps: Step[Sym]*): Unit =
+  private def encoding[Sym](testName: String, options: Options[Sym])(steps: Step[Sym]*): Unit =
     test(testName) {
       val encoder = new LzwEncoder(options)
 

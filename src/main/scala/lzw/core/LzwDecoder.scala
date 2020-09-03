@@ -14,6 +14,7 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
   private var width = options.codeWidth.initialWidth
   private var widthIncreaseCode: Code = 1 << width
+  private var isMaxCodeWidthExhausted: Boolean = false
   private var nextCode: Code = options.alphabet.size
   private var lastOutputOption: Option[Seq[Sym]] = None
 
@@ -61,20 +62,27 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   }
 
   private def addToDictionary(symbols: Seq[Sym]): Unit =
-    dictionary.put(getNextCode, symbols)
-
-  private def getNextCode: Code = {
-    val value = nextCode
-    nextCode += 1
-
-    val delta = if (options.codeWidth.earlyChange) 1 else 0
-    if (nextCode + delta == widthIncreaseCode) {
-      width += 1
-      widthIncreaseCode <<= 1
+    for (code <- getNextCode) {
+      dictionary.put(code, symbols)
     }
 
-    value
-  }
+  private def getNextCode: Option[Code] =
+    Option.when(!isMaxCodeWidthExhausted) {
+      val value = nextCode
+      nextCode += 1
+
+      val delta = if (options.codeWidth.earlyChange) 1 else 0
+      if (nextCode + delta == widthIncreaseCode && options.codeWidth.maximumWidth.forall(width < _)) {
+        width += 1
+        widthIncreaseCode <<= 1
+      }
+
+      if (nextCode == widthIncreaseCode) {
+        isMaxCodeWidthExhausted = true
+      }
+
+      value
+    }
 
   def statistics: Statistics = Statistics(dictionary.size)
 }
