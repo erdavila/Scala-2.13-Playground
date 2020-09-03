@@ -6,7 +6,7 @@ import org.scalatest.funsuite.AnyFunSuite
 class InputBitStreamTest extends AnyFunSuite {
   test("LSB") {
     val bytes = Array(181, 106, 245).map(_.toByte)
-    val ibs = new InputBitStream(new ByteArrayInputStream(bytes), PackingOrder.LSB)
+    val ibs = new InputBitStream(new ByteArrayInputStream(bytes), PackingOrder.LSBFirst)
     /*
        0: 181 = 10][110101] ------------------------ 10][110101]
        1: 106 =    01101010 --------------- 01101010       |
@@ -22,7 +22,7 @@ class InputBitStreamTest extends AnyFunSuite {
 
   test("MSB") {
     val bytes = Array(181, 106, 245).map(_.toByte)
-    val ibs = new InputBitStream(new ByteArrayInputStream(bytes), PackingOrder.MSB)
+    val ibs = new InputBitStream(new ByteArrayInputStream(bytes), PackingOrder.MSBFirst)
     /*
        181 = [101101][01 --- [101101][01
        106 =    01101010 --------+------ 01101010

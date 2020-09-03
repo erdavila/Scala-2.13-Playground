@@ -6,7 +6,7 @@ import org.scalatest.funsuite.AnyFunSuite
 class OutputBitStreamTest extends AnyFunSuite {
   test("LSB") {
     val byteArrayOS = new ByteArrayOutputStream()
-    val obs = new OutputBitStream(byteArrayOS, PackingOrder.LSB)
+    val obs = new OutputBitStream(byteArrayOS, PackingOrder.LSBFirst)
     obs.put(BitString.parse("1011"))
     obs.put(BitString.parse("100010111011001"))
     obs.put(BitString.parse("110"))
@@ -23,7 +23,7 @@ class OutputBitStreamTest extends AnyFunSuite {
 
   test("MSB") {
     val byteArrayOS = new ByteArrayOutputStream()
-    val obs = new OutputBitStream(byteArrayOS, PackingOrder.MSB)
+    val obs = new OutputBitStream(byteArrayOS, PackingOrder.MSBFirst)
     obs.put(BitString.parse("1011"))
     obs.put(BitString.parse("100010111011001"))
     obs.put(BitString.parse("110"))

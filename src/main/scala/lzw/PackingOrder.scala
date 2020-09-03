@@ -5,11 +5,11 @@ sealed trait PackingOrder {
 }
 
 object PackingOrder {
-  case object LSB extends PackingOrder {
+  case object LSBFirst extends PackingOrder {
     override def apply(bitString: BitString): bitString.End = bitString.lsb
   }
 
-  case object MSB extends PackingOrder {
+  case object MSBFirst extends PackingOrder {
     override def apply(bitString: BitString): bitString.End = bitString.msb
   }
 }

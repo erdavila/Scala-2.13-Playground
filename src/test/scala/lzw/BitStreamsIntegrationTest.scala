@@ -5,8 +5,8 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import org.scalatest.funsuite.AnyFunSuite
 
 class BitStreamsIntegrationTest extends AnyFunSuite {
-  testsFor(integration(PackingOrder.LSB))
-  testsFor(integration(PackingOrder.MSB))
+  testsFor(integration(PackingOrder.LSBFirst))
+  testsFor(integration(PackingOrder.MSBFirst))
 
   private def integration(packingOrder: PackingOrder): Unit =
     test(packingOrder.toString) {
