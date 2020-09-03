@@ -39,7 +39,9 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
 
             val newOutput = codeProducer.toBitString(currentMatch.code)
 
-            dictionary.put(tentativeMatchedSymbols, codeProducer.nextCode)
+            if (config.maxDictionarySize.forall(dictionary.size < _)) {
+              dictionary.put(tentativeMatchedSymbols, codeProducer.nextCode)
+            }
 
             currentMatch.symbols = Vector(symbol)
             currentMatch.code = dictionary(currentMatch.symbols)
@@ -55,9 +57,10 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
     }
 
   def resetDictionary(): Array[Byte] = ???
-  def statistics: Statistics = ???
+
+  def statistics: Statistics = Statistics(dictionary.size)
 }
 
 object LzwEncoder {
-  case class Statistics(inputBytes: Int, outputBytes: Int, dictionarySize: Int)
+  case class Statistics(/*inputSymbols: Int, outputBits: Int, outputCodes: Int,*/ dictionarySize: Int)
 }

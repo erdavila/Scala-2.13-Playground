@@ -124,6 +124,48 @@ class LzwEncoderTest extends AnyFunSpec {
       )
       encoding(configWithEarlyChange, inputSymbols, expectedBitStrings)
     }
+
+    describe("with max dictionary size") {
+      /*
+        Input | Output | Dict         | Code width
+        ------+--------+--------------+----------
+              |        | b0: X        |
+              |        | b1: o        | 2
+        X     | b00    | b10: Xo      |
+        o     | b01    | b11: oX      |
+        Xo    | b10    | b100: XoX    | 3
+        XoX   | b100   | *AT MAX*
+        oX    | b011   |
+        oX    | b011   |
+        oX    | b011   |
+        oX    | b011   |
+        oX    | b011   |
+        oX    | b011   |
+       */
+
+      val expectedBitStrings = Seq(
+        BitString.parse("00"),
+        BitString.parse("01"),
+        BitString.parse("10"),
+        BitString.parse("100"),
+        BitString.parse("011"),
+        BitString.parse("011"),
+        BitString.parse("011"),
+        BitString.parse("011"),
+        BitString.parse("011"),
+        BitString.parse("011"),
+      )
+
+      val configWithMaxDictSize = config.copy(maxDictionarySize = Some(5))
+      checkedEncodingSteps(
+        configWithMaxDictSize,
+        inputSymbols, 5,
+        expectedBitStrings, 3,
+      )(
+        _.statistics.dictionarySize < 5,
+        _.statistics.dictionarySize == 5,
+      )
+    }
   }
 
   private def encoding[Sym](config: Config[Sym], inputSymbols: Seq[Sym], expectedBitStrings: Seq[BitString]): Unit =
@@ -144,5 +186,34 @@ class LzwEncoderTest extends AnyFunSpec {
       val outputBitStrings = init ++ last
 
       assert(outputBitStrings == expectedBitStrings)
+    }
+
+  private def checkedEncodingSteps[Sym](
+    config: Config[Sym],
+    inputSymbols: Seq[Sym], inputIndex: Int,
+    expectedBitStrings: Seq[BitString], outputIndex: Int
+  )(
+    assertionBefore: LzwEncoder[Sym] => Unit,
+    assertionAfter: LzwEncoder[Sym] => Unit,
+  ): Unit =
+    it("encodes") {
+      val encoder = new LzwEncoder(config)
+
+      def eachStep(input: Seq[(Sym, Int)], assertion: LzwEncoder[Sym] => Unit) =
+        for {
+          (symbol, i) <- input
+          bitStrings = encoder.encode(Seq(symbol))
+          _ = withClue(s"index $i") { assertion(encoder) }
+          bitString <- bitStrings
+        } yield bitString
+
+      val (inputBefore, inputAfter) = inputSymbols.zipWithIndex.splitAt(inputIndex)
+      val (expectedBitStringsBefore, expectedBitStringsAfter) = expectedBitStrings.splitAt(outputIndex)
+
+      val outputBefore = eachStep(inputBefore, assertionBefore)
+      assert(outputBefore == expectedBitStringsBefore)
+
+      val outputAfter = eachStep(inputAfter, assertionAfter)
+      assert(outputAfter ++ encoder.finish() == expectedBitStringsAfter)
     }
 }
