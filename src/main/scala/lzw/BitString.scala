@@ -65,11 +65,14 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
         .map(_.toByte)
     }
 
+    override def drop(n: UnitType): BitString =
+      slice(n, length)
+
     override def extend(bits: BitString): BitString =
       self ++ bits
 
-    override def splitAt(n: Int): (BitString, BitString) =
-      splitAtImpl(n) { (slice(n, length), slice(0, n)) }
+    override def take(n: Int): BitString =
+      slice(0, n)
 
     override def otherEnd: End = msb
   }
@@ -90,20 +93,21 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
         .map(_.toByte)
     }
 
+    override def drop(n: UnitType): BitString =
+      slice(0, length - n)
+
     override def extend(bits: BitString): BitString =
       bits ++ self
 
-    override def splitAt(n: Int): (BitString, BitString) =
-      splitAtImpl(n) {
-        val splitPoint = length - n
-        (slice(0, splitPoint), slice(splitPoint, length))
-      }
+    override def take(n: Int): BitString =
+      slice(length - n, length)
 
     override def otherEnd: End = lsb
   }
 
   sealed trait End {
     def bytes: Iterator[Byte]
+    def drop(n: Int): BitString
     def extend(bits: BitString): BitString
 
     final def padTo(len: UnitType, elem: Boolean = false): BitString = {
@@ -115,14 +119,14 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
       extend(bits)
     }
 
-    def splitAt(n: Int): (BitString, BitString)
-
-    protected def splitAtImpl(n: Int)(result: => (BitString, BitString)): (BitString, BitString) = {
+    final def splitAt(n: Int): (BitString, BitString) = {
       require(n >= 0)
       if (n == 0) (self, BitString.empty)
       else if (n >= length) (BitString.empty, self)
-      else result
+      else (drop(n), take(n))
     }
+
+    def take(n: Int): BitString
 
     def otherEnd: End
   }
