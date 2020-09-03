@@ -1,5 +1,6 @@
 package lzw
 
+import java.util
 import scala.annotation.tailrec
 
 class BitString private(private val units: Array[BitString.UnitType], len: Int) { self =>
@@ -168,7 +169,7 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
     }
 
   override def hashCode(): Int =
-    len.hashCode() * 31 + units.hashCode()
+    len.hashCode() * 31 + util.Arrays.hashCode(units)
 
   override def toString: String =
     (0 until length)
