@@ -5,7 +5,6 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 class LzwEncoder[Sym](val config: Config[Sym]) {
-  type Code = Int
 
   private val dictionary: mutable.Map[Seq[Sym], Code] = mutable.Map(
     config.alphabet.zipWithIndex.map { case (symbol, code) =>
@@ -13,12 +12,7 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
     } : _*
   )
 
-  private val codeWidth = config.codeConfig match {
-    case CodeConfig.FixedWidth(width) => width
-    case CodeConfig.VariableWidth(_, _, _) => ???
-  }
-
-  private var nextCode: Code = config.alphabet.length
+  private val codeProducer = new CodeProducer(config.codeConfig, config.alphabet.length)
 
   private object currentMatch {
     var symbols: Vector[Sym] = Vector.empty
@@ -43,10 +37,9 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
             assert(tentativeMatchedSymbols.sizeIs >= 2)
             assert(currentMatch.symbols.nonEmpty)
 
-            dictionary.put(tentativeMatchedSymbols, nextCode)
-            nextCode += 1
+            val newOutput = codeProducer.toBitString(currentMatch.code)
 
-            val newOutput = outputCode(currentMatch.code)
+            dictionary.put(tentativeMatchedSymbols, codeProducer.nextCode)
 
             currentMatch.symbols = Vector(symbol)
             currentMatch.code = dictionary(currentMatch.symbols)
@@ -58,11 +51,8 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
 
   def finish(): Option[BitString] =
     Option.when(currentMatch.symbols.nonEmpty) {
-      outputCode(currentMatch.code)
+      codeProducer.toBitString(currentMatch.code)
     }
-
-  private def outputCode(code: Code): BitString =
-    BitString.from(code).lsb.take(codeWidth)
 
   def resetDictionary(): Array[Byte] = ???
   def statistics: Statistics = ???

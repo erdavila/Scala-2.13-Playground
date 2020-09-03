@@ -1,8 +1,10 @@
 package lzw
 
-sealed trait CodeConfig
+case class CodeConfig(initialWidth: Int, maximumWidth: Option[Int], earlyChange: Boolean) {
+  require(!maximumWidth.exists(_ < initialWidth))
+}
 
 object CodeConfig {
-  case class FixedWidth(width: Int) extends CodeConfig
-  case class VariableWidth(initialWidth: Int, maximumWidth: Option[Int], earlyChange: Boolean = false) extends CodeConfig
+  def fixedWidth(width: Int): CodeConfig =
+    new CodeConfig(width, Some(width), earlyChange = false)
 }

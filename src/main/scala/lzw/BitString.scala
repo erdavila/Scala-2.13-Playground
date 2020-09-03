@@ -140,8 +140,6 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
   }
 
   private def copyBits(fromUnits: Array[UnitType], fromBitIndex: Int, toUnits: Array[UnitType], toBitIndex: Int, count: Int): Unit = {
-    def mask(len: Int): UnitType = ~((~1) << (len - 1))
-
     @tailrec
     def loop(fromBitIndex: Int, toBitIndex: Int, count: Int): Unit =
       if (count > 0) {
@@ -153,7 +151,7 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
 
         val copyLen = Seq(count, UnitSize - fromBitOffset, UnitSize - toBitOffset).min
 
-        val bits = (fromUnits(fromUnitIndex) >>> fromBitOffset) & mask(copyLen)
+        val bits = (fromUnits(fromUnitIndex) >>> fromBitOffset) & BitUtils.lsbMask(copyLen)
         toUnits(toUnitIndex) |= bits << toBitOffset
 
         loop(fromBitIndex + copyLen, toBitIndex + copyLen, count - copyLen)
