@@ -6,54 +6,17 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class LzwEncoderTest extends AnyFunSuite {
 
+  import Fixtures.{OptionsForVariableWidthCodes, X, o}
+
   testsFor(encoding(Fixtures.Empty))
   testsFor(encoding(Fixtures.FixedWidthCodes))
-
-  private val X = 'X'
-  private val o = 'o'
-  private val optionsWithVariableWidthCodes = Options(
-    alphabet = Seq(X, o),
-    codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None)
-  )
-
-  testsFor {
-    encoding(
-      "variable-width codes",
-      optionsWithVariableWidthCodes,
-      inputSymbols = Seq(X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X),
-      /*
-        Input | Output | Dict         | Code width
-        ------+--------+--------------+----------
-              |        | b0: X        |
-              |        | b1: o        | 2
-        X     | b00    | b10: Xo      |
-        o     | b01    | b11: oX      |
-        Xo    | b10    | b100: XoX    | 3
-        XoX   | b100   | b101: XoXo   |
-        oX    | b011   | b110: oXo    |
-        oXo   | b110   | b111: oXoX   |
-        XoXo  | b101   | b1000: XoXoX | 4
-        XoX   | b0100  |
-       */
-      expectedBits = Seq(
-        "00",
-        "01",
-        "10",
-        "100",
-        "011",
-        "110",
-        "101",
-        "0100",
-      ),
-      expectedDictionarySizeAtTheEnd = 9,
-    )
-  }
+  testsFor(encoding(Fixtures.VariableWidthCodes))
 
   testsFor(
     encoding(
       "variable-width codes with early change",
-      optionsWithVariableWidthCodes.copy(
-        codeWidth = optionsWithVariableWidthCodes.codeWidth.copy(
+      OptionsForVariableWidthCodes.copy(
+        codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
           earlyChange = true
         )
       ),
@@ -89,8 +52,8 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encodingSteps(
       "variable-width codes with max width",
-      optionsWithVariableWidthCodes.copy(
-        codeWidth = optionsWithVariableWidthCodes.codeWidth.copy(
+      OptionsForVariableWidthCodes.copy(
+        codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
           maximumWidth = Some(3)
         )
       ),
@@ -135,8 +98,8 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encodingSteps(
       "variable-width codes with max width and early change",
-      optionsWithVariableWidthCodes.copy(
-        codeWidth = optionsWithVariableWidthCodes.codeWidth.copy(
+      OptionsForVariableWidthCodes.copy(
+        codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
           maximumWidth = Some(3),
           earlyChange = true,
         )

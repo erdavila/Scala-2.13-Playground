@@ -12,6 +12,8 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     options.alphabet.zipWithIndex.map { case (sym, code) => code -> Seq(sym) } : _*
   )
 
+  private var width = options.codeWidth.initialWidth
+  private var widthIncreaseCode: Code = 1 << width
   private var nextCode: Code = options.alphabet.size
   private var lastOutputOption: Option[Seq[Sym]] = None
 
@@ -24,6 +26,7 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   private def matchCodes(codesBitStrings: Seq[BitString], output: Seq[Sym]): Seq[Sym] =
     codesBitStrings match {
       case codeBitString +: remainingCodesBitStrings =>
+        require(codeBitString.length == width)
         val code = toCode(codeBitString)
         val newOutput = dictionary.get(code) match {
           case Some(newOutput) =>
@@ -57,9 +60,19 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
       .getInt(0)
   }
 
-  private def addToDictionary(symbols: Seq[Sym]): Unit = {
-    dictionary.put(nextCode, symbols)
+  private def addToDictionary(symbols: Seq[Sym]): Unit =
+    dictionary.put(getNextCode, symbols)
+
+  private def getNextCode: Code = {
+    val value = nextCode
     nextCode += 1
+
+    if (nextCode == widthIncreaseCode) {
+      width += 1
+      widthIncreaseCode <<= 1
+    }
+
+    value
   }
 
   def statistics: Statistics = Statistics(dictionary.size)

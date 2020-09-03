@@ -8,6 +8,7 @@ class LzwDecoderTest extends AnyFunSuite {
 
   testsFor(decoding(Fixtures.Empty))
   testsFor(decoding(Fixtures.FixedWidthCodes))
+  testsFor(decoding(Fixtures.VariableWidthCodes))
 
   private def decoding[Sym](fixture: Fixture[Sym]): Unit = {
     test(fixture.name) {

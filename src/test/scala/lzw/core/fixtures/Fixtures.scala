@@ -72,4 +72,59 @@ object Fixtures {
     ),
     dictionarySizeAtTheEnd = (1 << java.lang.Byte.SIZE) + 6,
   )
+
+  val X = 'X'
+  val o = 'o'
+  val OptionsForVariableWidthCodes: Options[Char] = Options(
+    alphabet = Seq(X, o),
+    codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None)
+  )
+
+  val VariableWidthCodes: Fixture[Char] = Fixture(
+    "variable-width codes",
+    OptionsForVariableWidthCodes,
+    symbols = Seq(X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X),
+    /*
+      **************** ENCODING ****************
+      Input | Output | Dict         | Code width
+      ------+--------+--------------+-----------
+            |        | b0: X        |
+            |        | b1: o        | 2
+      X     | b00    | b10: Xo      |
+      o     | b01    | b11: oX      |
+      Xo    | b10    | b100: XoX    | 3
+      XoX   | b100   | b101: XoXo   |
+      oX    | b011   | b110: oXo    |
+      oXo   | b110   | b111: oXoX   |
+      XoXo  | b101   | b1000: XoXoX | 4
+      XoX   | b0100  |
+
+      **************** DECODING ****************
+      Input | Output | Dict         | Code width
+      ------+--------+--------------+-----------
+            |        | b0: X        |
+            |        | b1: o        | 2
+      b00   | X      |              |
+      b01   | o      | b10: Xo      |
+      b10   | Xo     | b11: oX      | 3
+      b100  | ?      | b100: ?      |
+            | XoX    | b100: XoX    |
+      b011  | oX     | b101: XoXo   |
+      b110  | ?      | b110: ?      |
+            | oXo    | b110: oXo    |
+      b101  | XoXo   | b111: oXoX   | 4
+      b0100 | XoX    | b1000: XoXoX |
+     */
+    codesBits = Seq(
+      "00",
+      "01",
+      "10",
+      "100",
+      "011",
+      "110",
+      "101",
+      "0100",
+    ),
+    dictionarySizeAtTheEnd = 9,
+  )
 }
