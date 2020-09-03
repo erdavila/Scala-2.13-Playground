@@ -1,52 +1,13 @@
 package lzw.core
 
 import lzw.bits.BitString
+import lzw.core.fixtures.{Fixture, Fixtures}
 import org.scalatest.funsuite.AnyFunSuite
 
 class LzwEncoderTest extends AnyFunSuite {
-  private val bytesOptions = Options(
-    alphabet = Seq.range(0, 256).map(_.toByte),
-    codeWidth = CodeWidthOptions.fixedWidth(12),
-  )
 
-  testsFor(encoding("empty", bytesOptions, Seq.empty, Seq.empty))
-
-  testsFor(
-    encoding(
-      "fixed-width codes",
-      bytesOptions,
-      inputSymbols = {
-        val X = 'X'.toByte // b01011000
-        val o = 'o'.toByte // b01101111
-        Seq(X, o, X, o, X, o, X, o, X, o, X, o, X, o, X)
-      },
-      /*
-        Input | Output        | Dict
-        ------+---------------+------------------
-              |               | b1011000: X
-              |               | ...
-              |               | b1101111: o
-              |               | ...
-              |               | b11111111: ...
-        X     | b000001011000 | b100000000: Xo
-        o     | b000001101111 | b100000001: oX
-        Xo    | b000100000000 | b100000010: XoX
-        XoX   | b000100000010 | b100000011: XoXo
-        oX    | b000100000001 | b100000100: oXo
-        oXo   | b000100000100 | b100000101: oXoX
-        XoX   | b000100000010 |
-       */
-      expectedBits = Seq(
-        "000001011000",
-        "000001101111",
-        "000100000000",
-        "000100000010",
-        "000100000001",
-        "000100000100",
-        "000100000010",
-      ),
-    )
-  )
+  testsFor(encoding(Fixtures.Empty))
+  testsFor(encoding(Fixtures.FixedWidthCodes))
 
   private val X = 'X'
   private val o = 'o'
@@ -84,6 +45,7 @@ class LzwEncoderTest extends AnyFunSuite {
         "101",
         "0100",
       ),
+      expectedDictionarySizeAtTheEnd = 9,
     )
   }
 
@@ -120,6 +82,7 @@ class LzwEncoderTest extends AnyFunSuite {
         "0101",
         "0100",
       ),
+      expectedDictionarySizeAtTheEnd = 9,
     )
   )
 
@@ -326,6 +289,7 @@ class LzwEncoderTest extends AnyFunSuite {
         "0101",
         "0001",
       ),
+      expectedDictionarySizeAtTheEnd = 5,
     )
   )
 
@@ -373,7 +337,16 @@ class LzwEncoderTest extends AnyFunSuite {
     )
   )
 
-  private def encoding[Sym](testName: String, options: Options[Sym], inputSymbols: Seq[Sym], expectedBits: Seq[String]): Unit =
+  private def encoding[Sym](fixture: Fixture[Sym]): Unit =
+    encoding(fixture.name, fixture.options, fixture.symbols, fixture.codesBits, fixture.dictionarySizeAtTheEnd)
+
+  private def encoding[Sym](
+    testName: String,
+    options: Options[Sym],
+    inputSymbols: Seq[Sym],
+    expectedBits: Seq[String],
+    expectedDictionarySizeAtTheEnd: Int,
+  ): Unit =
     test(testName) {
       val encoder = new LzwEncoder(options)
 
@@ -391,6 +364,7 @@ class LzwEncoderTest extends AnyFunSuite {
       val outputBitStrings = init ++ last
 
       assert(outputBitStrings == expectedBits.map(BitString.parse))
+      assert(encoder.statistics.dictionarySize == expectedDictionarySizeAtTheEnd)
     }
 
   private sealed trait Step[Sym] {
