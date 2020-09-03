@@ -62,8 +62,10 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   }
 
   private def addToDictionary(symbols: Seq[Sym]): Unit =
-    for (code <- getNextCode) {
-      dictionary.put(code, symbols)
+    if (options.maxDictionarySize.forall(dictionary.sizeIs < _)) {
+      for (code <- getNextCode) {
+        dictionary.put(code, symbols)
+      }
     }
 
   private def getNextCode: Option[Code] =

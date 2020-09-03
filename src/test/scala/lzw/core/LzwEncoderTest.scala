@@ -15,41 +15,7 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(encoding(Fixtures.VariableWidthCodesWithEarlyChange))
   testsFor(encoding(Fixtures.VariableWidthCodesWithMaxWidth))
   testsFor(encoding(Fixtures.VariableWidthCodesWithMaxWidthAndEarlyChange))
-
-  testsFor(
-    encoding(
-      "max dictionary size",
-      Options(
-        alphabet = Seq(X, o),
-        codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None),
-        maxDictionarySize = Some(5),
-      ),
-    )(
-      /*
-        Input | Output | Dict         | Code width
-        ------+--------+--------------+----------
-              |        | b0: X        |
-              |        | b1: o        | 2
-        X     | b00    | b10: Xo      |
-        o     | b01    | b11: oX      |
-        Xo    | b10    | b100: XoX    | 3
-        XoX   | b100   | *AT MAX*
-        oX    | b011   |
-        oX    | b011   |
-        oX    | b011   |
-        oX    | b011   |
-        oX    | b011   |
-        oX    | b011   |
-       */
-      Encode(Seq(X, o, X, o),          expectedBits = Seq("00", "01"),          assertions = Seq((_.statistics.dictionarySize, 4))),
-
-      Encode(Seq(X),                   expectedBits = Seq("10"),                assertions = Seq((_.statistics.dictionarySize, 5))),
-
-      Encode(Seq(o, X, o, X, o, X, o), expectedBits = Seq("100", "011", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
-      Encode(Seq(X, o, X, o, X, o, X), expectedBits = Seq("011", "011", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
-      Finish(                          expectedBits = Seq("011"),               assertions = Seq((_.statistics.dictionarySize, 5))),
-    )
-  )
+  testsFor(encoding(Fixtures.MaxDictionarySize))
 
   testsFor(
     encoding(

@@ -309,4 +309,57 @@ object Fixtures {
     ),
     dictionarySizeAtTheEnd = 8,
   )
+
+  val MaxDictionarySize: SteppedEncodingFixture[Char] = SteppedEncodingFixture(
+    "max dictionary size",
+    Options(
+      alphabet = Seq(X, o),
+      codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None),
+      maxDictionarySize = Some(5),
+    ),
+    /*
+      ************** ENCODING **************
+      Input | Output | Dict      | Code width
+      ------+--------+-----------+----------
+            |        | b0: X     |
+            |        | b1: o     | 2
+      X     | b00    | b10: Xo   |
+      o     | b01    | b11: oX   |
+      Xo    | b10    | b100: XoX | 3
+      XoX   | b100   | *AT MAX*
+      oX    | b011   |
+      oX    | b011   |
+      oX    | b011   |
+      oX    | b011   |
+      oX    | b011   |
+      oX    | b011   |
+
+      ************** DECODING **************
+      Input | Output | Dict      | Code width
+      ------+--------+-----------+-----------
+            |        | b0: X     |
+            |        | b1: o     | 2
+      b00   | X      |           |
+      b01   | o      | b10: Xo   |
+      b10   | Xo     | b11: oX   | 3
+      b100  | ?      | b100: ?   |
+            | XoX    | b100: XoX |
+      b011  | oX     | *AT MAX*
+      b011  | oX
+      b011  | oX
+      b011  | oX
+      b011  | oX
+      b011  | oX
+     */
+    steps = Seq(
+      Encode(Seq(X, o, X, o),          expectedBits = Seq("00", "01"),          assertions = Seq((_.statistics.dictionarySize, 4))),
+
+      Encode(Seq(X),                   expectedBits = Seq("10"),                assertions = Seq((_.statistics.dictionarySize, 5))),
+
+      Encode(Seq(o, X, o, X, o, X, o), expectedBits = Seq("100", "011", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
+      Encode(Seq(X, o, X, o, X, o, X), expectedBits = Seq("011", "011", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
+      Finish(                          expectedBits = Seq("011"),               assertions = Seq((_.statistics.dictionarySize, 5))),
+    ),
+    dictionarySizeAtTheEnd = 5,
+  )
 }
