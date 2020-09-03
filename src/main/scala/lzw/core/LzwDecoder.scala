@@ -67,7 +67,8 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     val value = nextCode
     nextCode += 1
 
-    if (nextCode == widthIncreaseCode) {
+    val delta = if (options.codeWidth.earlyChange) 1 else 0
+    if (nextCode + delta == widthIncreaseCode) {
       width += 1
       widthIncreaseCode <<= 1
     }

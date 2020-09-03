@@ -11,43 +11,7 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(encoding(Fixtures.Empty))
   testsFor(encoding(Fixtures.FixedWidthCodes))
   testsFor(encoding(Fixtures.VariableWidthCodes))
-
-  testsFor(
-    encoding(
-      "variable-width codes with early change",
-      OptionsForVariableWidthCodes.copy(
-        codeWidth = OptionsForVariableWidthCodes.codeWidth.copy(
-          earlyChange = true
-        )
-      ),
-      inputSymbols = Seq(X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X),
-      /*
-        Input | Output | Dict         | Code width
-        ------+--------+--------------+----------
-              |        | b0: X        |
-              |        | b1: o        | 2
-        X     | b00    | b10: Xo      |
-        o     | b01    | b11: oX      | 3
-        Xo    | b010   | b100: XoX    |
-        XoX   | b100   | b101: XoXo   |
-        oX    | b011   | b110: oXo    |
-        oXo   | b110   | b111: oXoX   | 4
-        XoXo  | b0101  | b1000: XoXoX |
-        XoX   | b0100  |
-       */
-      expectedBits = Seq(
-        "00",
-        "01",
-        "010",
-        "100",
-        "011",
-        "110",
-        "0101",
-        "0100",
-      ),
-      expectedDictionarySizeAtTheEnd = 9,
-    )
-  )
+  testsFor(encoding(Fixtures.VariableWidthCodesWithEarlyChange))
 
   testsFor(
     encodingSteps(
