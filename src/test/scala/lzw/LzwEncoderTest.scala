@@ -166,6 +166,97 @@ class LzwEncoderTest extends AnyFunSpec {
         _.statistics.dictionarySize == 5,
       )
     }
+
+    describe("with max code width") {
+      val inputSymbols = Seq(X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o)
+
+      /*
+        Input | Output | Dict         | Code width
+        ------+--------+--------------+----------
+              |        | b0: X        |
+              |        | b1: o        | 2
+        X     | b00    | b10: Xo      |
+        o     | b01    | b11: oX      |
+        Xo    | b10    | b100: XoX    | 3
+        XoX   | b100   | b101: XoXo   |
+        oX    | b011   | b110: oXo    |
+        oXo   | b110   | b111: oXoX   |
+        XoXo  | b101   | *AT MAX*
+        XoXo  | b101   |
+        XoXo  | b101   |
+       */
+
+      val expectedBitStrings = Seq(
+        BitString.parse("00"),
+        BitString.parse("01"),
+        BitString.parse("10"),
+        BitString.parse("100"),
+        BitString.parse("011"),
+        BitString.parse("110"),
+        BitString.parse("101"),
+        BitString.parse("101"),
+        BitString.parse("101"),
+      )
+
+      val configWithMaxCodeWidth = config.copy(
+        codeConfig = config.codeConfig.copy(
+          maximumWidth = Some(3)
+        )
+      )
+      checkedEncodingSteps(
+        configWithMaxCodeWidth,
+        inputSymbols, 13,
+        expectedBitStrings, 6,
+      )(
+        !_.maxCodeWidthExhausted,
+        _.maxCodeWidthExhausted,
+      )
+
+      describe("and early change") {
+        /*
+          Input | Output | Dict         | Code width
+          ------+--------+--------------+----------
+                |        | b0: X        |
+                |        | b1: o        | 2
+          X     | b00    | b10: Xo      |
+          o     | b01    | b11: oX      | 3
+          Xo    | b010   | b100: XoX    |
+          XoX   | b100   | b101: XoXo   |
+          oX    | b011   | b110: oXo    |
+          oXo   | b110   | b111: oXoX   |
+          XoXo  | b101   | *AT MAX*
+          XoXo  | b101   |
+          XoXo  | b101   |
+         */
+
+        val expectedBitStrings = Seq(
+          BitString.parse("00"),
+          BitString.parse("01"),
+          BitString.parse("010"),
+          BitString.parse("100"),
+          BitString.parse("011"),
+          BitString.parse("110"),
+          BitString.parse("101"),
+          BitString.parse("101"),
+          BitString.parse("101"),
+        )
+
+        val configWithMaxCodeWidthAndEarlyChange = config.copy(
+          codeConfig = config.codeConfig.copy(
+            maximumWidth = Some(3),
+            earlyChange = true,
+          )
+        )
+        checkedEncodingSteps(
+          configWithMaxCodeWidthAndEarlyChange,
+          inputSymbols, 13,
+          expectedBitStrings, 6,
+        )(
+          !_.maxCodeWidthExhausted,
+          _.maxCodeWidthExhausted,
+        )
+      }
+    }
   }
 
   private def encoding[Sym](config: Config[Sym], inputSymbols: Seq[Sym], expectedBitStrings: Seq[BitString]): Unit =
