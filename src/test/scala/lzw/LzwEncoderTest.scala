@@ -55,38 +55,75 @@ class LzwEncoderTest extends AnyFunSpec {
 
     val config = Config(
       alphabet = Seq(X, o),
-      codeConfig = CodeConfig(initialWidth = 2, maximumWidth = None, earlyChange = false)
+      codeConfig = CodeConfig(initialWidth = 2, maximumWidth = None)
     )
 
     val inputSymbols = Seq(X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X)
 
-    /*
-      Input | Output | Dict         | Code width
-      ------+--------+--------------+----------
-            |        | b0: X        |
-            |        | b1: o        | 2
-      X     | b00    | b10: Xo      |
-      o     | b01    | b11: oX      |
-      Xo    | b10    | b100: XoX    | 3
-      XoX   | b100   | b101: XoXo   |
-      oX    | b011   | b110: oXo    |
-      oXo   | b110   | b111: oXoX   |
-      XoXo  | b101   | b1000: XoXoX | 4
-      XoX   | b0100  |
-     */
+    describe("basic case") {
+      /*
+        Input | Output | Dict         | Code width
+        ------+--------+--------------+----------
+              |        | b0: X        |
+              |        | b1: o        | 2
+        X     | b00    | b10: Xo      |
+        o     | b01    | b11: oX      |
+        Xo    | b10    | b100: XoX    | 3
+        XoX   | b100   | b101: XoXo   |
+        oX    | b011   | b110: oXo    |
+        oXo   | b110   | b111: oXoX   |
+        XoXo  | b101   | b1000: XoXoX | 4
+        XoX   | b0100  |
+       */
 
-    val expectedBitStrings = Seq(
-      BitString.parse("00"),
-      BitString.parse("01"),
-      BitString.parse("10"),
-      BitString.parse("100"),
-      BitString.parse("011"),
-      BitString.parse("110"),
-      BitString.parse("101"),
-      BitString.parse("0100"),
-    )
+      val expectedBitStrings = Seq(
+        BitString.parse("00"),
+        BitString.parse("01"),
+        BitString.parse("10"),
+        BitString.parse("100"),
+        BitString.parse("011"),
+        BitString.parse("110"),
+        BitString.parse("101"),
+        BitString.parse("0100"),
+      )
 
-    encoding(config, inputSymbols, expectedBitStrings)
+      encoding(config, inputSymbols, expectedBitStrings)
+    }
+
+    describe("with early change") {
+      /*
+        Input | Output | Dict         | Code width
+        ------+--------+--------------+----------
+              |        | b0: X        |
+              |        | b1: o        | 2
+        X     | b00    | b10: Xo      |
+        o     | b01    | b11: oX      | 3
+        Xo    | b010   | b100: XoX    |
+        XoX   | b100   | b101: XoXo   |
+        oX    | b011   | b110: oXo    |
+        oXo   | b110   | b111: oXoX   | 4
+        XoXo  | b0101  | b1000: XoXoX |
+        XoX   | b0100  |
+       */
+
+      val expectedBitStrings = Seq(
+        BitString.parse("00"),
+        BitString.parse("01"),
+        BitString.parse("010"),
+        BitString.parse("100"),
+        BitString.parse("011"),
+        BitString.parse("110"),
+        BitString.parse("0101"),
+        BitString.parse("0100"),
+      )
+
+      val configWithEarlyChange = config.copy(
+        codeConfig = config.codeConfig.copy(
+          earlyChange = true
+        )
+      )
+      encoding(configWithEarlyChange, inputSymbols, expectedBitStrings)
+    }
   }
 
   private def encoding[Sym](config: Config[Sym], inputSymbols: Seq[Sym], expectedBitStrings: Seq[BitString]): Unit =

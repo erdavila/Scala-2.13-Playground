@@ -9,7 +9,8 @@ class CodeProducer(codeConfig: CodeConfig, firstNextCode: Code) {
   def nextCode: Code = {
     val code = theNextCode
 
-    if (code == widthIncreaseCode) {
+    val earlyDelta = if (codeConfig.earlyChange) 1 else 0
+    if (code + earlyDelta == widthIncreaseCode) {
       width += 1
       widthIncreaseCode <<= 1
     }
