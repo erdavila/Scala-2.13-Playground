@@ -5,11 +5,11 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import org.scalatest.funsuite.AnyFunSuite
 
 class BitStreamsIntegrationTest extends AnyFunSuite {
-  testsFor(integration(PackingOrder.LSBFirst))
-  testsFor(integration(PackingOrder.MSBFirst))
+  testsFor(integration(BitSignificance.LSB))
+  testsFor(integration(BitSignificance.MSB))
 
-  private def integration(packingOrder: PackingOrder): Unit =
-    test(packingOrder.toString) {
+  private def integration(packingOrderFirst: BitSignificance): Unit =
+    test(packingOrderFirst.toString) {
       val bitStrings = Seq(
         BitString.parse("1011"),
         BitString.parse("100010111011001"),
@@ -17,14 +17,14 @@ class BitStreamsIntegrationTest extends AnyFunSuite {
       )
 
       val byteArrayOS = new ByteArrayOutputStream()
-      val obs = new OutputBitStream(byteArrayOS, packingOrder)
+      val obs = new OutputBitStream(byteArrayOS, packingOrderFirst)
       for (bs <- bitStrings) {
         obs.put(bs)
       }
       obs.close()
 
       val bytes = byteArrayOS.toByteArray
-      val ibs = new InputBitStream(new ByteArrayInputStream(bytes), packingOrder)
+      val ibs = new InputBitStream(new ByteArrayInputStream(bytes), packingOrderFirst)
 
       for ((bs, i) <- bitStrings.zipWithIndex) {
         withClue(s"i=$i") {

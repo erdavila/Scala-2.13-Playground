@@ -1,18 +1,18 @@
 package lzw
 
-class BitStringEncoder(packingOrder: PackingOrder) {
+class BitStringEncoder(packingOrderFirst: BitSignificance) {
   private var buffer = BitString.empty
 
   def putBytes(bytes: Array[Byte]): Unit =
     buffer = bytes.foldLeft(buffer) { (buf, byte) =>
-      packingOrder(buf).otherEnd.extend(BitString.from(byte))
+      buf.end(packingOrderFirst).otherEnd.extend(BitString.from(byte))
     }
 
   def bitsAvailable: Int =
     buffer.length
 
   def getBits(n: Int): BitString = {
-    val (newBuffer, bits) = packingOrder(buffer).splitAt(n)
+    val (newBuffer, bits) = buffer.end(packingOrderFirst).splitAt(n)
     buffer = newBuffer
     bits
   }

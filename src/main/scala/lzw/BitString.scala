@@ -53,6 +53,8 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
   }
 
   val lsb: End = new End {
+    override val significance: BitSignificance = BitSignificance.LSB
+
     override def bytes: Iterator[Byte] = {
       val byteCount = requiredUnitsForLength(length, java.lang.Byte.SIZE)
       val bytesPerUnit = UnitSize / java.lang.Byte.SIZE
@@ -78,6 +80,8 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
   }
 
   val msb: End = new End {
+    override val significance: BitSignificance = BitSignificance.MSB
+
     override def bytes: Iterator[Byte] = {
       val byteCount = requiredUnitsForLength(length, java.lang.Byte.SIZE)
       val bytesPerUnit = UnitSize / java.lang.Byte.SIZE
@@ -105,7 +109,10 @@ class BitString private(private val units: Array[BitString.UnitType], len: Int) 
     override def otherEnd: End = lsb
   }
 
+  val end: Map[BitSignificance, End] = Map(BitSignificance.LSB -> lsb, BitSignificance.MSB -> msb)
+
   sealed trait End {
+    val significance: BitSignificance
     def bytes: Iterator[Byte]
     def drop(n: Int): BitString
     def extend(bits: BitString): BitString

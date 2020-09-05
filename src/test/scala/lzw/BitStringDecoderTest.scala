@@ -18,7 +18,7 @@ class BitStringDecoderTest extends AnyFunSuite {
       ##[110][100 01011101 1001][1011]
           2           1           0
      */
-    decoding(PackingOrder.LSBFirst)(
+    decoding(BitSignificance.LSB)(
       Array(155, 93, 52).map(_.toByte)
     )
   )
@@ -32,14 +32,14 @@ class BitStringDecoderTest extends AnyFunSuite {
       [1011][1000 10111011 001][110]##
         0            1           2
      */
-    decoding(PackingOrder.MSBFirst)(
+    decoding(BitSignificance.MSB)(
       Array(184, 187, 56).map(_.toByte)
     )
   )
 
-  private def decoding(packingOrder: PackingOrder)(expectedBytes: Array[Byte]): Unit = {
-    test(packingOrder.toString) {
-      val decoder = new BitStringDecoder(packingOrder)
+  private def decoding(packingOrderFirst: BitSignificance)(expectedBytes: Array[Byte]): Unit = {
+    test(packingOrderFirst.toString) {
+      val decoder = new BitStringDecoder(packingOrderFirst)
       assert(decoder.decode(InputBitStrings(0)).isEmpty)
       assert(decoder.decode(InputBitStrings(1)) `sameElements` expectedBytes.take(2))
       assert(decoder.decode(InputBitStrings(2)).isEmpty)

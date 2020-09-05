@@ -3,7 +3,7 @@ package lzw
 import java.io.InputStream
 import scala.annotation.tailrec
 
-class InputBitStream(inputStream: InputStream, packingOrder: PackingOrder) {
+class InputBitStream(inputStream: InputStream, packingOrderFirst: BitSignificance) {
 
   private var bufferedBits: BitString = BitString.empty
 
@@ -12,10 +12,10 @@ class InputBitStream(inputStream: InputStream, packingOrder: PackingOrder) {
       val bytesRequired = BitString.requiredUnitsForLength(count - bufferedBits.length, java.lang.Byte.SIZE)
       bufferedBits = readBytes(bytesRequired)
         .map(BitString.from)
-        .foldLeft(bufferedBits)(packingOrder(_).otherEnd.extend(_))
+        .foldLeft(bufferedBits)(_.end(packingOrderFirst).otherEnd.extend(_))
     }
 
-    val (newBufferedBits, result) = packingOrder(bufferedBits).splitAt(count)
+    val (newBufferedBits, result) = bufferedBits.end(packingOrderFirst).splitAt(count)
     bufferedBits = newBufferedBits
     result
   }

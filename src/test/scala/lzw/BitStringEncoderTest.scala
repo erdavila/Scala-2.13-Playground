@@ -14,7 +14,7 @@ class BitStringEncoderTest extends AnyFunSuite {
                                 [1111010][1 01101010 10][110101]
                                     2           1          0
      */
-    encoding(PackingOrder.LSBFirst)(
+    encoding(BitSignificance.LSB)(
       BitString.parse("110101"),
       BitString.parse("10110101010"),
       BitString.parse("1111010"),
@@ -30,16 +30,16 @@ class BitStringEncoderTest extends AnyFunSuite {
                              [101101][01 01101010 1][1110101]
                                  0           1          2
      */
-    encoding(PackingOrder.MSBFirst)(
+    encoding(BitSignificance.MSB)(
       BitString.parse("101101"),
       BitString.parse("01011010101"),
       BitString.parse("1110101"),
     )
   )
 
-  private def encoding(packingOrder: PackingOrder)(expectedBits: BitString*): Unit =
-    test(packingOrder.toString) {
-      val encoder = new BitStringEncoder(packingOrder)
+  private def encoding(packingOrderFirst: BitSignificance)(expectedBits: BitString*): Unit =
+    test(packingOrderFirst.toString) {
+      val encoder = new BitStringEncoder(packingOrderFirst)
       assert(encoder.bitsAvailable == 0)
       assert(encoder.getBits(10) == BitString.empty)
 
