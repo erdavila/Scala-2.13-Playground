@@ -8,15 +8,35 @@ import scala.collection.mutable
 
 class LzwDecoder[Sym](val options: Options[Sym]) {
 
-  private val dictionary: mutable.Map[Code, Seq[Sym]] = mutable.Map(
-    options.alphabet.zipWithIndex.map { case (sym, code) => code -> Seq(sym) } : _*
-  )
+  private val dictionary: mutable.Map[Code, Seq[Sym]] = mutable.Map.empty
+  private var width = -1
+  private var widthIncreaseCode: Code = _
+  private var isMaxCodeWidthExhausted: Boolean = _
+  private var nextCode: Code = _
+  private var lastOutputOption: Option[Seq[Sym]] = _
 
-  private var width = options.codeWidth.initialWidth
-  private var widthIncreaseCode: Code = 1 << width
-  private var isMaxCodeWidthExhausted: Boolean = false
-  private var nextCode: Code = options.alphabet.size
-  private var lastOutputOption: Option[Seq[Sym]] = None
+  initialize()
+
+  private def initialize(): Unit = {
+    dictionary.clear()
+
+    val codes = {
+      val codesRangeA = Iterator.range(0, options.clearCode.getOrElse(0))
+      val codesRangeB = Iterator.from(options.clearCode.fold(0)(_ + 1))
+
+      (codesRangeA ++ codesRangeB).take(options.alphabet.size).toVector
+    }
+    dictionary.addAll(
+      for ((sym, code) <- options.alphabet `zip` codes)
+        yield code -> Vector(sym)
+    )
+
+    width = options.codeWidth.initialWidth
+    widthIncreaseCode = 1 << width
+    isMaxCodeWidthExhausted = false
+    nextCode = (codes.last +: options.clearCode.toSeq).max + 1
+    lastOutputOption = None
+  }
 
   def decode(codesBitStrings: Seq[BitString]): Seq[Sym] = {
     require(codesBitStrings.forall(_.length > 0))
@@ -29,13 +49,19 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
       case codeBitString +: remainingCodesBitStrings =>
         require(codeBitString.length == width)
         val code = toCode(codeBitString)
-        val newOutput = dictionary.get(code) match {
+        dictionary.get(code) match {
           case Some(newOutput) =>
             for (lastOutput <- lastOutputOption) {
               addToDictionary(lastOutput :+ newOutput.head)
             }
 
-            newOutput
+            lastOutputOption = Some(newOutput)
+            matchCodes(remainingCodesBitStrings, output ++ newOutput)
+
+          case None if options.clearCode.contains(code) =>
+            initialize()
+            matchCodes(remainingCodesBitStrings, output)
+
           case None =>
             assert(code == nextCode)
             val lastOutput = lastOutputOption.get
@@ -43,11 +69,9 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
             addToDictionary(newOutput)
 
-            newOutput
+            lastOutputOption = Some(newOutput)
+            matchCodes(remainingCodesBitStrings, output ++ newOutput)
         }
-
-        lastOutputOption = Some(newOutput)
-        matchCodes(remainingCodesBitStrings, output ++ newOutput)
       case _ => output
     }
 

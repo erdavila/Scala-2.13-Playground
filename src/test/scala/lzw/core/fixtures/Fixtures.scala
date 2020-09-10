@@ -1,6 +1,6 @@
 package lzw.core.fixtures
 
-import lzw.core.fixtures.SteppedEncodingFixture.{Encode, Finish}
+import lzw.core.fixtures.SteppedEncodingFixture.{Encode, Finish, Reset}
 import lzw.core.{CodeWidthOptions, Options}
 
 object Fixtures {
@@ -361,5 +361,69 @@ object Fixtures {
       Finish(                          expectedBits = Seq("011"),               assertions = Seq((_.statistics.dictionarySize, 5))),
     ),
     dictionarySizeAtTheEnd = 5,
+  )
+
+  val ClearCode: SteppedEncodingFixture[Char] = SteppedEncodingFixture(
+    "clear code",
+    Options(
+      alphabet = Seq(X, o),
+      codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None),
+      clearCode = Some(1),
+    ),
+    /*
+        ***************** ENCODING *****************
+        Matched |       |        |           | Code
+        before  | Input | Output | Dict      | width
+        --------+-------+--------+-----------+------
+                |       |        | b0: X     | 2
+                |       |        | b1: CLEAR |
+                |       |        | b10: o    |
+                | X     |        |           |
+        X       | o     | b00    | b11: Xo   |
+        o       | X     | b10    | b100: oX  | 3
+        X       | o     |        |           |
+        Xo      | X     | b011   | b101: XoX |
+        X       | o     |        |           |
+        Xo      | X     |        |           |
+        XoX     | CLEAR | b101   |           |
+                |       | b001   |-----------|------
+                |       |        | b0: X     | 2
+                |       |        | b1: CLEAR |
+                |       |        | b10: o    |
+                | o     |        |           |
+        o       | X     | b10    | b11: oX   |
+        X       | o     | b00    | b100: Xo  | 3
+        o       | X     |        |           |
+        oX      | END   | b011   |           |
+
+        ************ DECODING ************
+              |        |           | Code
+        Input | Output | Dict      | width
+        ------+--------+-----------+------
+              |        | b0: X     | 2
+              |        | b1: CLEAR |
+              |        | b10: o    |
+        b00   | X      |           |
+        b10   | o      | b11: Xo   | 3
+        b011  | Xo     | b100: oX  |
+        b101  | ?      | b101: ?   |
+              | XoX    | b101: XoX |
+        b001  | CLEAR  |-----------|------
+              |        | b0: X     | 2
+              |        | b1: CLEAR |
+              |        | b10: o    |
+        b10   | o      |           |
+        b00   | X      | b11: oX   | 3
+        b011  | oX     | b100: Xo  |
+     */
+    steps = Seq(
+      Encode(Seq('X', 'o', 'X', 'o', 'X', 'o', 'X'), expectedBits = Seq("00", "10", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
+
+      Reset(                                         expectedBits = Seq("101", "001"),      assertions = Seq((_.statistics.dictionarySize, 2))),
+
+      Encode(Seq('o', 'X', 'o', 'X'),                expectedBits = Seq("10", "00"),        assertions = Seq((_.statistics.dictionarySize, 4))),
+      Finish(                                        expectedBits = Seq("011"),             assertions = Seq((_.statistics.dictionarySize, 4))),
+    ),
+    dictionarySizeAtTheEnd = 4,
   )
 }

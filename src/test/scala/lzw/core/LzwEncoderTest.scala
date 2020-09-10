@@ -16,49 +16,7 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(encoding(Fixtures.VariableWidthCodesWithMaxWidth))
   testsFor(encoding(Fixtures.VariableWidthCodesWithMaxWidthAndEarlyChange))
   testsFor(encoding(Fixtures.MaxDictionarySize))
-
-  testsFor(
-    encoding(
-      "clear code",
-      Options(
-        alphabet = Seq(X, o),
-        codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None),
-        clearCode = Some(1),
-      ),
-    )(
-      /*
-          Matched |       |        |           | Code
-          before  | Input | Output | Dict      | width
-          --------+-------+--------+-----------+------
-                  |       |        | b0: X     | 2
-                  |       |        | b1: CLEAR |
-                  |       |        | b10: o    |
-                  | X     |        |           |
-          X       | o     | b00    | b11: Xo   |
-          o       | X     | b10    | b100: oX  | 3
-          X       | o     |        |           |
-          Xo      | X     | b011   | b101: XoX |
-          X       | o     |        |           |
-          Xo      | X     |        |           |
-          XoX     | CLEAR | b101   |           |
-                  |       | b001   |-----------|------
-                  |       |        | b0: X     | 2
-                  |       |        | b1: CLEAR |
-                  |       |        | b10: o    |
-                  | o     |        |           |
-          o       | X     | b10    | b11: oX   |
-          X       | o     | b00    | b100: Xo  | 3
-          o       | X     |        |           |
-          oX      | END   | b011   |           |
-       */
-      Encode(Seq('X', 'o', 'X', 'o', 'X', 'o', 'X'), expectedBits = Seq("00", "10", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
-
-      Reset(                                         expectedBits = Seq("101", "001"),      assertions = Seq((_.statistics.dictionarySize, 2))),
-
-      Encode(Seq('o', 'X', 'o', 'X'),                expectedBits = Seq("10", "00"),        assertions = Seq((_.statistics.dictionarySize, 4))),
-      Finish(                                        expectedBits = Seq("011"),             assertions = Seq((_.statistics.dictionarySize, 4))),
-    )
-  )
+  testsFor(encoding(Fixtures.ClearCode))
 
   testsFor(
     encoding(
