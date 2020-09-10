@@ -319,10 +319,122 @@ class LzwEncoderTest extends AnyFunSpec {
       }
       assert(encoder.statistics.dictionarySize == 4)
 
-      assert {
+      {
         val output = encoder.finish()
-        val expected = Option("011").map(BitString.parse)
-        output == expected
+        val expected = Seq("011").map(BitString.parse)
+        assert(output == expected)
+      }
+    }
+  }
+
+  describe("stop code") {
+    val X = 'X'
+    val o = 'o'
+
+    val config = Config(
+      alphabet = Seq(X, o),
+      codeConfig = CodeConfig(
+        initialWidth = 4,
+        maximumWidth = None,
+      ),
+      stopCode = Some(1),
+    )
+
+    val inputSymbols = Seq(X, o, X, o, X, o, X)
+
+    /*
+      Matched | Input | Output | Dictionary
+      --------+-------+--------+-----------
+              |       |        | b0: X
+              |       |        | b1: STOP
+              |       |        | b10: o
+              | X     |        |
+      X       | o     | b0000  | b11: Xo
+      o       | X     | b0010  | b100: oX
+      X       | o     |        |
+      Xo      | X     | b0011  | b101: XoX
+      X       | o     |        |
+      Xo      | X     |        |
+      XoX     | STOP  | b0101  |
+              |       | b0001  |
+     */
+
+    val expectedBitStrings = Seq(
+      "0000",
+      "0010",
+      "0011",
+      "0101",
+      "0001",
+    ).map(BitString.parse)
+
+    encoding(config, inputSymbols, expectedBitStrings)
+  }
+
+  describe("clear code and stop code") {
+    val X = 'X'
+    val o = 'o'
+
+    val config = Config(
+      alphabet = Seq(X, o),
+      codeConfig = CodeConfig.fixedWidth(4),
+      clearCode = Some(3),
+      stopCode = Some(4),
+    )
+
+    /*
+      Matched | Input | Output | Dictionary
+      --------+-------+--------+-----------
+              |       |        | b0: X
+              |       |        | b1: o
+              |       |        | b10: -
+              |       |        | b11: CLEAR
+              |       |        | b100: STOP
+              | X     |        |
+      X       | o     | b0000  | b101: Xo
+      o       | X     | b0001  | b110: oX
+      X       | o     |        |
+      Xo      | X     | b0101  | b111: XoX
+      X       | CLEAR | b0000  |
+              |       | b0011  |-----------
+              |       |        | b0: X
+              |       |        | b1: o
+              |       |        | b10: -
+              |       |        | b11: CLEAR
+              |       |        | b100: STOP
+              | o     |        |
+      o       | X     | b0001  | b101: oX
+      X       | STOP  | b0000  |
+              |       | b0100  |
+     */
+
+    it("encodes") {
+      val encoder = new LzwEncoder(config)
+
+      {
+        val output = encoder.encode(Seq(X, o, X, o, X))
+        val expected = Seq("0000", "0001", "0101").map(BitString.parse)
+        assert(output == expected)
+      }
+      assert(encoder.statistics.dictionarySize == 5)
+
+      {
+        val output = encoder.reset()
+        val expected = Seq("0000", "0011").map(BitString.parse)
+        assert(output == expected)
+      }
+      assert(encoder.statistics.dictionarySize == 2)
+
+      {
+        val output = encoder.encode(Seq(o, X))
+        val expected = Seq("0001").map(BitString.parse)
+        assert(output == expected)
+      }
+      assert(encoder.statistics.dictionarySize == 3)
+
+      {
+        val output = encoder.finish()
+        val expected = Seq("0000", "0100").map(BitString.parse)
+        assert(output == expected)
       }
     }
   }

@@ -9,5 +9,6 @@ case class Config[Sym](
 ) {
   require(codeConfig.initialWidth >= BitUtils.bitsRequired(alphabet.size))
   for (c <- clearCode) { require(codeConfig.initialWidth >= BitUtils.bitsRequired(c)) }
+  for (s <- stopCode) { require(codeConfig.initialWidth >= BitUtils.bitsRequired(s)) }
   require(!maxDictionarySize.exists(_ < alphabet.size))
 }

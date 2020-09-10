@@ -25,7 +25,7 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
     def addToDict(nextCode: Code, symbols: Seq[Sym]): Code =
       symbols match {
         case symbol +: rest =>
-          if (config.clearCode.contains(nextCode)) {
+          if (config.clearCode.contains(nextCode) || config.stopCode.contains(nextCode)) {
             addToDict(nextCode + 1, symbols)
           } else {
             dictionary.put(Seq(symbol), nextCode)
@@ -37,7 +37,7 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
 
     codeProducer = new CodeProducer(
       config.codeConfig,
-      firstNextCode = math.max(nextCode, config.clearCode.fold(0)(_ + 1)),
+      firstNextCode = (nextCode +: (config.clearCode ++ config.stopCode).map(_ + 1).toSeq).max,
     )
 
     currentMatch.symbols = Vector.empty
@@ -78,19 +78,22 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
       case _ => output
     }
 
-  def finish(): Option[BitString] =
-    Option.when(currentMatch.symbols.nonEmpty) {
-      codeProducer.toBitString(currentMatch.code)
-    }
+  def finish(): Seq[BitString] =
+    flush().toSeq ++ config.stopCode.map(codeProducer.toBitString)
 
   def reset(): Seq[BitString] =
     config.clearCode match {
       case Some(code) =>
-        val remaining = finish()
+        val remaining = flush()
         val clearCode = codeProducer.toBitString(code)
         initialize()
         remaining.toSeq :+ clearCode
       case None => throw new UnsupportedOperationException("reset() is not supported because clear code is unset")
+    }
+
+  private def flush(): Option[BitString] =
+    Option.when(currentMatch.symbols.nonEmpty) {
+      codeProducer.toBitString(currentMatch.code)
     }
 
   def statistics: Statistics = Statistics(dictionary.size)
