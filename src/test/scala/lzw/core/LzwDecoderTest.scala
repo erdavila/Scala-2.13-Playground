@@ -14,6 +14,40 @@ class LzwDecoderTest extends AnyFunSuite {
   testsFor(decoding(Fixtures.VariableWidthCodesWithMaxWidthAndEarlyChange.toFixture))
   testsFor(decoding(Fixtures.MaxDictionarySize.toFixture))
   testsFor(decoding(Fixtures.ClearCode.toFixture))
+  testsFor(decoding(Fixtures.StopCode))
+
+  test("stop code sets stopped attribute") {
+    val StopCodeFixture = Fixtures.StopCode
+    val initCodes :+ lastCode = StopCodeFixture.codesBits.map(BitString.parse)
+
+    val decoder = new LzwDecoder(StopCodeFixture.options)
+    assert(!decoder.stopped)
+
+    val outputBegin = decoder.decode(initCodes)
+    assert(!decoder.stopped)
+
+    val outputEnd = decoder.decode(Seq(lastCode))
+    assert(decoder.stopped)
+
+    assert(outputBegin ++ outputEnd == StopCodeFixture.symbols)
+  }
+
+  test("stop code with exceeding codes") {
+    val StopCodeFixture = Fixtures.StopCode
+    val ExceedingCodesBits = Seq("0000", "1111").map(BitString.parse)
+    val initCodes :+ lastCode = StopCodeFixture.codesBits.map(BitString.parse)
+    val decoder = new LzwDecoder(StopCodeFixture.options)
+
+    val outputSymbols = decoder.decode(initCodes)
+    val e = intercept[LzwDecoder.ExceedingCodesException[_]] {
+      decoder.decode(lastCode +: ExceedingCodesBits)
+    }
+
+    assert(outputSymbols ++ e.lastSymbols == StopCodeFixture.symbols)
+    assert(e.exceedingCodesCount == ExceedingCodesBits.size)
+  }
+
+  testsFor(decoding(Fixtures.ClearCodeAndStopCode.toFixture))
 
   private def decoding[Sym](fixture: Fixture[Sym]): Unit = {
     test(fixture.name) {

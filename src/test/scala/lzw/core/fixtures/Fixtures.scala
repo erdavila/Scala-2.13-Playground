@@ -426,4 +426,120 @@ object Fixtures {
     ),
     dictionarySizeAtTheEnd = 4,
   )
+
+  val StopCode: Fixture[Char] = Fixture(
+    "stop code",
+    Options(
+      alphabet = Seq(X, o),
+      codeWidth = CodeWidthOptions(initialWidth = 4, maximumWidth = None),
+      stopCode = Some(1),
+    ),
+    symbols = Seq(X, o, X, o, X, o, X),
+    /*
+      ************** ENCODING **************
+      Matched | Input | Output | Dictionary
+      --------+-------+--------+-----------
+              |       |        | b0: X
+              |       |        | b1: STOP
+              |       |        | b10: o
+              | X     |        |
+      X       | o     | b0000  | b11: Xo
+      o       | X     | b0010  | b100: oX
+      X       | o     |        |
+      Xo      | X     | b0011  | b101: XoX
+      X       | o     |        |
+      Xo      | X     |        |
+      XoX     | STOP  | b0101  |
+              |       | b0001  |
+
+      ** DECODING **
+      Input | Output | Dictionary
+      ------+--------+-----------
+            |        | b0: X
+            |        | b1: STOP
+            |        | b10: o
+      b0000 | X      |
+      b0010 | o      | b11: Xo
+      b0011 | Xo     | b100: oX
+      b0101 | ?      | b101: ?
+            | XoX    | b101: XoX
+      b0001 | STOP
+
+     */
+    codesBits = Seq(
+      "0000",
+      "0010",
+      "0011",
+      "0101",
+      "0001",
+    ),
+    dictionarySizeAtTheEnd = 5,
+  )
+
+  val ClearCodeAndStopCode: SteppedEncodingFixture[Char] = SteppedEncodingFixture(
+    "clear code and stop code",
+    Options(
+      alphabet = Seq(X, o),
+      codeWidth = CodeWidthOptions.fixedWidth(4),
+      clearCode = Some(3),
+      stopCode = Some(4),
+    ),
+    /*
+      ************** ENCODING **************
+      Matched | Input | Output | Dictionary
+      --------+-------+--------+-----------
+              |       |        | b0: X
+              |       |        | b1: o
+              |       |        | b10: -
+              |       |        | b11: CLEAR
+              |       |        | b100: STOP
+              | X     |        |
+      X       | o     | b0000  | b101: Xo
+      o       | X     | b0001  | b110: oX
+      X       | o     |        |
+      Xo      | X     | b0101  | b111: XoX
+      X       | CLEAR | b0000  |
+              |       | b0011  |-----------
+              |       |        | b0: X
+              |       |        | b1: o
+              |       |        | b10: -
+              |       |        | b11: CLEAR
+              |       |        | b100: STOP
+              | o     |        |
+      o       | X     | b0001  | b101: oX
+      X       | STOP  | b0000  |
+              |       | b0100  |
+
+      ********* DECODING *********
+      Input | Output | Dictionary
+      ------+--------+-----------
+            |        | b0: X
+            |        | b1: o
+            |        | b10: -
+            |        | b11: CLEAR
+            |        | b100: STOP
+      b0000 | X      |
+      b0001 | o      | b101: Xo
+      b0101 | Xo     | b110: oX
+      b0000 | X      | b111: XoX
+      b0011 | CLEAR  |-----------
+            |        | b0: X
+            |        | b1: o
+            |        | b10: -
+            |        | b11: CLEAR
+            |        | b100: STOP
+      b0001 | o      |
+      b0000 | X      | b101: oX
+      b0100 | STOP
+     */
+    steps = Seq(
+      Encode(Seq(X, o, X, o, X), expectedBits = Seq("0000", "0001", "0101"), assertions = Seq((_.statistics.dictionarySize, 5))),
+
+      Reset(                     expectedBits = Seq("0000", "0011"),         assertions = Seq((_.statistics.dictionarySize, 2))),
+
+      Encode(Seq(o, X),          expectedBits = Seq("0001"),                 assertions = Seq((_.statistics.dictionarySize, 3))),
+      Finish(                    expectedBits = Seq("0000", "0100"),         assertions = Seq((_.statistics.dictionarySize, 3))),
+    ),
+    dictionarySizeAtTheEnd = 3,
+  )
 }

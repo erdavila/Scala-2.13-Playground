@@ -7,8 +7,6 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class LzwEncoderTest extends AnyFunSuite {
 
-  import Fixtures.{X, o}
-
   testsFor(encoding(Fixtures.Empty))
   testsFor(encoding(Fixtures.FixedWidthCodes))
   testsFor(encoding(Fixtures.VariableWidthCodes))
@@ -17,86 +15,8 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(encoding(Fixtures.VariableWidthCodesWithMaxWidthAndEarlyChange))
   testsFor(encoding(Fixtures.MaxDictionarySize))
   testsFor(encoding(Fixtures.ClearCode))
-
-  testsFor(
-    encoding(
-      "stop code",
-      Options(
-        alphabet = Seq(X, o),
-        codeWidth = CodeWidthOptions(initialWidth = 4, maximumWidth = None),
-        stopCode = Some(1),
-      ),
-      inputSymbols = Seq(X, o, X, o, X, o, X),
-      /*
-        Matched | Input | Output | Dictionary
-        --------+-------+--------+-----------
-                |       |        | b0: X
-                |       |        | b1: STOP
-                |       |        | b10: o
-                | X     |        |
-        X       | o     | b0000  | b11: Xo
-        o       | X     | b0010  | b100: oX
-        X       | o     |        |
-        Xo      | X     | b0011  | b101: XoX
-        X       | o     |        |
-        Xo      | X     |        |
-        XoX     | STOP  | b0101  |
-                |       | b0001  |
-       */
-      expectedBits = Seq(
-        "0000",
-        "0010",
-        "0011",
-        "0101",
-        "0001",
-      ),
-      expectedDictionarySizeAtTheEnd = 5,
-    )
-  )
-
-  testsFor(
-    encoding(
-      "clear code and stop code",
-      Options(
-        alphabet = Seq(X, o),
-        codeWidth = CodeWidthOptions.fixedWidth(4),
-        clearCode = Some(3),
-        stopCode = Some(4),
-      ),
-    )(
-      /*
-        Matched | Input | Output | Dictionary
-        --------+-------+--------+-----------
-                |       |        | b0: X
-                |       |        | b1: o
-                |       |        | b10: -
-                |       |        | b11: CLEAR
-                |       |        | b100: STOP
-                | X     |        |
-        X       | o     | b0000  | b101: Xo
-        o       | X     | b0001  | b110: oX
-        X       | o     |        |
-        Xo      | X     | b0101  | b111: XoX
-        X       | CLEAR | b0000  |
-                |       | b0011  |-----------
-                |       |        | b0: X
-                |       |        | b1: o
-                |       |        | b10: -
-                |       |        | b11: CLEAR
-                |       |        | b100: STOP
-                | o     |        |
-        o       | X     | b0001  | b101: oX
-        X       | STOP  | b0000  |
-                |       | b0100  |
-       */
-      Encode(Seq(X, o, X, o, X), expectedBits = Seq("0000", "0001", "0101"), assertions = Seq((_.statistics.dictionarySize, 5))),
-
-      Reset(                     expectedBits = Seq("0000", "0011"),         assertions = Seq((_.statistics.dictionarySize, 2))),
-
-      Encode(Seq(o, X),          expectedBits = Seq("0001"),                 assertions = Seq((_.statistics.dictionarySize, 3))),
-      Finish(                    expectedBits = Seq("0000", "0100"),         assertions = Seq((_.statistics.dictionarySize, 3))),
-    )
-  )
+  testsFor(encoding(Fixtures.StopCode))
+  testsFor(encoding(Fixtures.ClearCodeAndStopCode))
 
   private def encoding[Sym](fixture: Fixture[Sym]): Unit =
     encoding(fixture.name, fixture.options, fixture.symbols, fixture.codesBits, fixture.dictionarySizeAtTheEnd)

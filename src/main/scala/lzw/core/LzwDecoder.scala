@@ -2,7 +2,7 @@ package lzw.core
 
 import java.nio.{ByteBuffer, ByteOrder}
 import lzw.bits.BitString
-import lzw.core.LzwDecoder.Statistics
+import lzw.core.LzwDecoder.{ExceedingCodesException, Statistics}
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -14,17 +14,23 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   private var isMaxCodeWidthExhausted: Boolean = _
   private var nextCode: Code = _
   private var lastOutputOption: Option[Seq[Sym]] = _
+  private var _stopped: Boolean = false
 
   initialize()
 
   private def initialize(): Unit = {
     dictionary.clear()
+    val specialCodes = options.clearCode ++ options.stopCode
 
     val codes = {
-      val codesRangeA = Iterator.range(0, options.clearCode.getOrElse(0))
-      val codesRangeB = Iterator.from(options.clearCode.fold(0)(_ + 1))
+      val minCode = specialCodes.minOption
+      val maxCode = specialCodes.maxOption
 
-      (codesRangeA ++ codesRangeB).take(options.alphabet.size).toVector
+      val codesRangeA = Iterator.range(0, minCode.getOrElse(0))
+      val codesRangeB = Iterator.range(minCode.fold(0)(_ + 1), maxCode.getOrElse(0))
+      val codesRangeC = Iterator.from(maxCode.fold(0)(_ + 1))
+
+      (codesRangeA ++ codesRangeB ++ codesRangeC).take(options.alphabet.size).toVector
     }
     dictionary.addAll(
       for ((sym, code) <- options.alphabet `zip` codes)
@@ -34,7 +40,7 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     width = options.codeWidth.initialWidth
     widthIncreaseCode = 1 << width
     isMaxCodeWidthExhausted = false
-    nextCode = (codes.last +: options.clearCode.toSeq).max + 1
+    nextCode = (codes.last +: specialCodes.toSeq).max + 1
     lastOutputOption = None
   }
 
@@ -46,6 +52,9 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   @tailrec
   private def matchCodes(codesBitStrings: Seq[BitString], output: Seq[Sym]): Seq[Sym] =
     codesBitStrings match {
+      case _ +: _ if _stopped =>
+        throw ExceedingCodesException(output, codesBitStrings.size)
+
       case codeBitString +: remainingCodesBitStrings =>
         require(codeBitString.length == width)
         val code = toCode(codeBitString)
@@ -60,6 +69,10 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
           case None if options.clearCode.contains(code) =>
             initialize()
+            matchCodes(remainingCodesBitStrings, output)
+
+          case None if options.stopCode.contains(code) =>
+            _stopped = true
             matchCodes(remainingCodesBitStrings, output)
 
           case None =>
@@ -110,9 +123,13 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
       value
     }
 
+  def stopped: Boolean = _stopped
+
   def statistics: Statistics = Statistics(dictionary.size)
 }
 
 object LzwDecoder {
   case class Statistics(/*inputBits: Int, inputCodes: Int, outputSymbols: Int, */dictionarySize: Int)
+
+  case class ExceedingCodesException[Sym](lastSymbols: Seq[Sym], exceedingCodesCount: Int) extends Exception
 }
