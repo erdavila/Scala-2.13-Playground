@@ -1,22 +1,47 @@
 package lzw
 
 import lzw.LzwEncoder.Statistics
+
 import scala.annotation.tailrec
 import scala.collection.mutable
 
 class LzwEncoder[Sym](val config: Config[Sym]) {
 
-  private val dictionary: mutable.Map[Seq[Sym], Code] = mutable.Map(
-    config.alphabet.zipWithIndex.map { case (symbol, code) =>
-      Seq(symbol) -> code
-    } : _*
-  )
+  private val dictionary: mutable.Map[Seq[Sym], Code] = mutable.Map.empty
 
-  private val codeProducer = new CodeProducer(config.codeConfig, config.alphabet.length)
+  private var codeProducer: CodeProducer = _
 
   private object currentMatch {
-    var symbols: Vector[Sym] = Vector.empty
-    var code: Code = -1
+    var symbols: Vector[Sym] = _
+    var code: Code = _
+  }
+
+  initialize()
+
+  private def initialize(): Unit = {
+    dictionary.clear()
+
+    @tailrec
+    def addToDict(nextCode: Code, symbols: Seq[Sym]): Code =
+      symbols match {
+        case symbol +: rest =>
+          if (config.clearCode.contains(nextCode)) {
+            addToDict(nextCode + 1, symbols)
+          } else {
+            dictionary.put(Seq(symbol), nextCode)
+            addToDict(nextCode + 1, rest)
+          }
+        case _ => nextCode
+      }
+    val nextCode = addToDict(0, config.alphabet)
+
+    codeProducer = new CodeProducer(
+      config.codeConfig,
+      firstNextCode = math.max(nextCode, config.clearCode.fold(0)(_ + 1)),
+    )
+
+    currentMatch.symbols = Vector.empty
+    currentMatch.code = -1
   }
 
   def encode(symbols: Seq[Sym]): Seq[BitString] =
@@ -58,7 +83,15 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
       codeProducer.toBitString(currentMatch.code)
     }
 
-  def resetDictionary(): Array[Byte] = ???
+  def reset(): Seq[BitString] =
+    config.clearCode match {
+      case Some(code) =>
+        val remaining = finish()
+        val clearCode = codeProducer.toBitString(code)
+        initialize()
+        remaining.toSeq :+ clearCode
+      case None => throw new UnsupportedOperationException("reset() is not supported because clear code is unset")
+    }
 
   def statistics: Statistics = Statistics(dictionary.size)
   def maxCodeWidthExhausted: Boolean = codeProducer.maxWidthExhausted

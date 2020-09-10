@@ -259,6 +259,74 @@ class LzwEncoderTest extends AnyFunSpec {
     }
   }
 
+  describe("clear code") {
+    val X = 'X'
+    val o = 'o'
+
+    val config = Config(
+      alphabet = Seq(X, o),
+      codeConfig = CodeConfig(initialWidth = 2, maximumWidth = None),
+      clearCode = Some(1),
+    )
+
+    /*
+        Matched |       |        |           | Code
+        before  | Input | Output | Dict      | width
+        --------+-------+--------+-----------+------
+                |       |        | b0: X     | 2
+                |       |        | b1: CLEAR |
+                |       |        | b10: o    |
+                | X     |        |           |
+        X       | o     | b00    | b11: Xo   |
+        o       | X     | b10    | b100: oX  | 3
+        X       | o     |        |           |
+        Xo      | X     | b011   | b101: XoX |
+        X       | o     |        |           |
+        Xo      | X     |        |           |
+        XoX     | CLEAR | b101   |           |
+                |       | b001   |-----------|------
+                |       |        | b0: X     | 2
+                |       |        | b1: CLEAR |
+                |       |        | b10: o    |
+                | o     |        |           |
+        o       | X     | b10    | b11: oX   |
+        X       | o     | b00    | b100: Xo  | 3
+        o       | X     |        |           |
+        oX      | END   | b011   |           |
+     */
+
+    it("encodes") {
+      val encoder = new LzwEncoder(config)
+
+      {
+        val output = encoder.encode(Seq('X', 'o', 'X', 'o', 'X', 'o', 'X'))
+        val expected = Seq("00", "10", "011").map(BitString.parse)
+        assert(output == expected)
+      }
+      assert(encoder.statistics.dictionarySize == 5)
+
+      assert {
+        val output = encoder.reset()
+        val expected = Seq("101", "001").map(BitString.parse)
+        output == expected
+      }
+      assert(encoder.statistics.dictionarySize == 2)
+
+      assert {
+        val output = encoder.encode(Seq('o', 'X', 'o', 'X'))
+        val expected = Seq("10", "00").map(BitString.parse)
+        output == expected
+      }
+      assert(encoder.statistics.dictionarySize == 4)
+
+      assert {
+        val output = encoder.finish()
+        val expected = Option("011").map(BitString.parse)
+        output == expected
+      }
+    }
+  }
+
   private def encoding[Sym](config: Config[Sym], inputSymbols: Seq[Sym], expectedBitStrings: Seq[BitString]): Unit =
     it("encodes") {
       val encoder = new LzwEncoder(config)
