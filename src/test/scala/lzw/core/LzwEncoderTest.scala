@@ -4,17 +4,17 @@ import lzw.bits.BitString
 import org.scalatest.funsuite.AnyFunSuite
 
 class LzwEncoderTest extends AnyFunSuite {
-  private val bytesConfig = Config(
+  private val bytesOptions = Options(
     alphabet = Seq.range(0, 256).map(_.toByte),
-    codeConfig = CodeConfig.fixedWidth(12),
+    codeWidth = CodeWidthOptions.fixedWidth(12),
   )
 
-  testsFor(encoding("empty", bytesConfig, Seq.empty, Seq.empty))
+  testsFor(encoding("empty", bytesOptions, Seq.empty, Seq.empty))
 
   testsFor(
     encoding(
       "fixed-width codes",
-      bytesConfig,
+      bytesOptions,
       inputSymbols = {
         val X = 'X'.toByte // b01011000
         val o = 'o'.toByte // b01101111
@@ -50,15 +50,15 @@ class LzwEncoderTest extends AnyFunSuite {
 
   private val X = 'X'
   private val o = 'o'
-  private val configWithVariableWidthCodes = Config(
+  private val optionsWithVariableWidthCodes = Options(
     alphabet = Seq(X, o),
-    codeConfig = CodeConfig(initialWidth = 2, maximumWidth = None)
+    codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None)
   )
 
   testsFor {
     encoding(
       "variable-width codes",
-      configWithVariableWidthCodes,
+      optionsWithVariableWidthCodes,
       inputSymbols = Seq(X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X, o, X),
       /*
         Input | Output | Dict         | Code width
@@ -90,8 +90,8 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encoding(
       "variable-width codes with early change",
-      configWithVariableWidthCodes.copy(
-        codeConfig = configWithVariableWidthCodes.codeConfig.copy(
+      optionsWithVariableWidthCodes.copy(
+        codeWidth = optionsWithVariableWidthCodes.codeWidth.copy(
           earlyChange = true
         )
       ),
@@ -126,8 +126,8 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encodingSteps(
       "variable-width codes with max width",
-      configWithVariableWidthCodes.copy(
-        codeConfig = configWithVariableWidthCodes.codeConfig.copy(
+      optionsWithVariableWidthCodes.copy(
+        codeWidth = optionsWithVariableWidthCodes.codeWidth.copy(
           maximumWidth = Some(3)
         )
       ),
@@ -172,8 +172,8 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encodingSteps(
       "variable-width codes with max width and early change",
-      configWithVariableWidthCodes.copy(
-        codeConfig = configWithVariableWidthCodes.codeConfig.copy(
+      optionsWithVariableWidthCodes.copy(
+        codeWidth = optionsWithVariableWidthCodes.codeWidth.copy(
           maximumWidth = Some(3),
           earlyChange = true,
         )
@@ -219,9 +219,9 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encodingSteps(
       "max dictionary size",
-      Config(
+      Options(
         alphabet = Seq(X, o),
-        codeConfig = CodeConfig(initialWidth = 2, maximumWidth = None),
+        codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None),
         maxDictionarySize = Some(5),
       ),
     )(
@@ -254,9 +254,9 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encodingSteps(
       "clear code",
-      Config(
+      Options(
         alphabet = Seq(X, o),
-        codeConfig = CodeConfig(initialWidth = 2, maximumWidth = None),
+        codeWidth = CodeWidthOptions(initialWidth = 2, maximumWidth = None),
         clearCode = Some(1),
       ),
     )(
@@ -297,9 +297,9 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encoding(
       "stop code",
-      Config(
+      Options(
         alphabet = Seq(X, o),
-        codeConfig = CodeConfig(initialWidth = 4, maximumWidth = None),
+        codeWidth = CodeWidthOptions(initialWidth = 4, maximumWidth = None),
         stopCode = Some(1),
       ),
       inputSymbols = Seq(X, o, X, o, X, o, X),
@@ -332,9 +332,9 @@ class LzwEncoderTest extends AnyFunSuite {
   testsFor(
     encodingSteps(
       "clear code and stop code",
-      Config(
+      Options(
         alphabet = Seq(X, o),
-        codeConfig = CodeConfig.fixedWidth(4),
+        codeWidth = CodeWidthOptions.fixedWidth(4),
         clearCode = Some(3),
         stopCode = Some(4),
       ),
@@ -373,9 +373,9 @@ class LzwEncoderTest extends AnyFunSuite {
     )
   )
 
-  private def encoding[Sym](testName: String, config: Config[Sym], inputSymbols: Seq[Sym], expectedBits: Seq[String]): Unit =
+  private def encoding[Sym](testName: String, options: Options[Sym], inputSymbols: Seq[Sym], expectedBits: Seq[String]): Unit =
     test(testName) {
-      val encoder = new LzwEncoder(config)
+      val encoder = new LzwEncoder(options)
 
       val blocks = Iterator.from(1)
         .scanLeft((Seq.empty[Sym], inputSymbols)) { case ((_, remainingSymbols), n) =>
@@ -402,9 +402,9 @@ class LzwEncoderTest extends AnyFunSuite {
   private case class Reset[Sym](expectedBits: Seq[String], assertions: Seq[(LzwEncoder[Sym] => Any, Any)]) extends Step[Sym]
   private case class Finish[Sym](expectedBits: Seq[String], assertions: Seq[(LzwEncoder[Sym] => Any, Any)]) extends Step[Sym]
 
-  private def encodingSteps[Sym](testName: String, config: Config[Sym])(steps: Step[Sym]*): Unit =
+  private def encodingSteps[Sym](testName: String, options: Options[Sym])(steps: Step[Sym]*): Unit =
     test(testName) {
-      val encoder = new LzwEncoder(config)
+      val encoder = new LzwEncoder(options)
 
       for ((step, i) <- steps.zipWithIndex)
         withClue(s"(step index $i)") {

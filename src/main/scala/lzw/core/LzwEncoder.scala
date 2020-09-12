@@ -5,7 +5,7 @@ import lzw.core.LzwEncoder.Statistics
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-class LzwEncoder[Sym](val config: Config[Sym]) {
+class LzwEncoder[Sym](val options: Options[Sym]) {
 
   private val dictionary: mutable.Map[Seq[Sym], Code] = mutable.Map.empty
 
@@ -25,7 +25,7 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
     def addToDict(nextCode: Code, symbols: Seq[Sym]): Code =
       symbols match {
         case symbol +: rest =>
-          if (config.clearCode.contains(nextCode) || config.stopCode.contains(nextCode)) {
+          if (options.clearCode.contains(nextCode) || options.stopCode.contains(nextCode)) {
             addToDict(nextCode + 1, symbols)
           } else {
             dictionary.put(Seq(symbol), nextCode)
@@ -33,11 +33,11 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
           }
         case _ => nextCode
       }
-    val nextCode = addToDict(0, config.alphabet)
+    val nextCode = addToDict(0, options.alphabet)
 
     codeProducer = new CodeProducer(
-      config.codeConfig,
-      firstNextCode = (nextCode +: (config.clearCode ++ config.stopCode).map(_ + 1).toSeq).max,
+      options.codeWidth,
+      firstNextCode = (nextCode +: (options.clearCode ++ options.stopCode).map(_ + 1).toSeq).max,
     )
 
     currentMatch.symbols = Vector.empty
@@ -64,7 +64,7 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
 
             val newOutput = codeProducer.toBitString(currentMatch.code)
 
-            if (config.maxDictionarySize.forall(dictionary.size < _)) {
+            if (options.maxDictionarySize.forall(dictionary.size < _)) {
               for (code <- codeProducer.nextCode) {
                 dictionary.put(tentativeMatchedSymbols, code)
               }
@@ -79,10 +79,10 @@ class LzwEncoder[Sym](val config: Config[Sym]) {
     }
 
   def finish(): Seq[BitString] =
-    flush().toSeq ++ config.stopCode.map(codeProducer.toBitString)
+    flush().toSeq ++ options.stopCode.map(codeProducer.toBitString)
 
   def reset(): Seq[BitString] =
-    config.clearCode match {
+    options.clearCode match {
       case Some(code) =>
         val remaining = flush()
         val clearCode = codeProducer.toBitString(code)

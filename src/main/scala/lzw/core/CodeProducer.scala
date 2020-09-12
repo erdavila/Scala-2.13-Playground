@@ -2,8 +2,8 @@ package lzw.core
 
 import lzw.bits.BitString
 
-class CodeProducer(codeConfig: CodeConfig, firstNextCode: Code) {
-  private var width: Int = codeConfig.initialWidth
+class CodeProducer(codeWidthOptions: CodeWidthOptions, firstNextCode: Code) {
+  private var width: Int = codeWidthOptions.initialWidth
   private var widthIncreaseCode: Code = 1 << width
   private var isMaxWidthExhausted: Boolean = false
 
@@ -17,9 +17,9 @@ class CodeProducer(codeConfig: CodeConfig, firstNextCode: Code) {
       theNextCode += 1
       isMaxWidthExhausted =
         theNextCode == widthIncreaseCode &&
-        !codeConfig.maximumWidth.forall(width < _)
+        !codeWidthOptions.maximumWidth.forall(width < _)
 
-      val delta = if (codeConfig.earlyChange) 1 else 0
+      val delta = if (codeWidthOptions.earlyChange) 1 else 0
       if (code + delta == widthIncreaseCode && !isMaxWidthExhausted) {
         width += 1
         widthIncreaseCode <<= 1
