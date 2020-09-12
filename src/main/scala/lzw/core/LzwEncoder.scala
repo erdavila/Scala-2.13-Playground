@@ -1,7 +1,7 @@
-package lzw
+package lzw.core
 
-import lzw.LzwEncoder.Statistics
-
+import lzw.bits.BitString
+import lzw.core.LzwEncoder.Statistics
 import scala.annotation.tailrec
 import scala.collection.mutable
 

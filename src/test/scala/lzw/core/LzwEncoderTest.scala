@@ -1,5 +1,6 @@
-package lzw
+package lzw.core
 
+import lzw.bits.BitString
 import org.scalatest.funsuite.AnyFunSuite
 
 class LzwEncoderTest extends AnyFunSuite {

@@ -1,4 +1,4 @@
-package lzw
+package lzw.bits
 
 class BitStringEncoder(packingOrderFirst: BitSignificance) {
   private var buffer = BitString.empty

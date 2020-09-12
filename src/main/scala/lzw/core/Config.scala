@@ -1,4 +1,6 @@
-package lzw
+package lzw.core
+
+import lzw.bits.BitUtils
 
 case class Config[Sym](
   alphabet: Seq[Sym],

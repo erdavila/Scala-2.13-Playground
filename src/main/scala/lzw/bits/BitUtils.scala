@@ -1,4 +1,4 @@
-package lzw
+package lzw.bits
 
 import scala.annotation.tailrec
 

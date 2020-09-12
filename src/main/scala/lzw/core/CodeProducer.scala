@@ -1,4 +1,6 @@
-package lzw
+package lzw.core
+
+import lzw.bits.BitString
 
 class CodeProducer(codeConfig: CodeConfig, firstNextCode: Code) {
   private var width: Int = codeConfig.initialWidth

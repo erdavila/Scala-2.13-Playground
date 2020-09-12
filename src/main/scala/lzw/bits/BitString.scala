@@ -1,4 +1,4 @@
-package lzw
+package lzw.bits
 
 import java.util
 import scala.annotation.tailrec
@@ -211,6 +211,6 @@ object BitString {
     new BitString(units, str.length)
   }
 
-  def requiredUnitsForLength(bitCount: Int, unitSize: Int = UnitSize): Int =
+  private def requiredUnitsForLength(bitCount: Int, unitSize: Int = UnitSize): Int =
     (bitCount + (unitSize - 1)) / unitSize
 }

@@ -1,4 +1,4 @@
-package lzw
+package lzw.core
 
 case class CodeConfig(initialWidth: Int, maximumWidth: Option[Int], earlyChange: Boolean = false) {
   require(!maximumWidth.exists(_ < initialWidth))
