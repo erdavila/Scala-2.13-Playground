@@ -2,21 +2,22 @@ package lzw.core
 
 import lzw.bits.BitString
 
-class CodeProducer(codeWidthOptions: CodeWidthOptions, firstNextCode: Code) {
+class CodeProducer(codeWidthOptions: CodeWidthOptions, reservedCodes: Seq[Code]) {
   private var width: Int = codeWidthOptions.initialWidth
   private var widthIncreaseCode: Code = 1 << width
   private var isMaxWidthExhausted: Boolean = false
 
-  private var theNextCode: Code = firstNextCode
+  private var _nextCode: Code = 0
 
   def maxWidthExhausted: Boolean = isMaxWidthExhausted
 
   def nextCode: Option[Code] =
     Option.when(!isMaxWidthExhausted) {
-      val code = theNextCode
-      theNextCode += 1
+      skipReservedCodes()
+      val code = _nextCode
+      _nextCode += 1
       isMaxWidthExhausted =
-        theNextCode == widthIncreaseCode &&
+        _nextCode >= widthIncreaseCode &&
         !codeWidthOptions.maximumWidth.forall(width < _)
 
       val delta = if (codeWidthOptions.earlyChange) 1 else 0
@@ -26,6 +27,11 @@ class CodeProducer(codeWidthOptions: CodeWidthOptions, firstNextCode: Code) {
       }
 
       code
+    }
+
+  private def skipReservedCodes(): Unit =
+    while (reservedCodes.contains(_nextCode)) {
+      _nextCode += 1
     }
 
   def toBitString(code: Code): BitString =

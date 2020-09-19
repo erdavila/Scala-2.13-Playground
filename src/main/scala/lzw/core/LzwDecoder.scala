@@ -12,35 +12,22 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   private var width = -1
   private var widthIncreaseCode: Code = _
   private var isMaxCodeWidthExhausted: Boolean = _
-  private var nextCode: Code = _
+  private var _nextCode: Code = _
   private var lastOutputOption: Option[Seq[Sym]] = _
   private var _stopped: Boolean = false
 
   initialize()
 
   private def initialize(): Unit = {
+    _nextCode = 0
+    skipReservedCodes()
     dictionary.clear()
-    val specialCodes = options.clearCode ++ options.stopCode
-
-    val codes = {
-      val minCode = specialCodes.minOption
-      val maxCode = specialCodes.maxOption
-
-      val codesRangeA = Iterator.range(0, minCode.getOrElse(0))
-      val codesRangeB = Iterator.range(minCode.fold(0)(_ + 1), maxCode.getOrElse(0))
-      val codesRangeC = Iterator.from(maxCode.fold(0)(_ + 1))
-
-      (codesRangeA ++ codesRangeB ++ codesRangeC).take(options.alphabet.size).toVector
-    }
-    dictionary.addAll(
-      for ((sym, code) <- options.alphabet `zip` codes)
-        yield code -> Vector(sym)
-    )
-
     width = options.codeWidth.initialWidth
     widthIncreaseCode = 1 << width
     isMaxCodeWidthExhausted = false
-    nextCode = (codes.last +: specialCodes.toSeq).max + 1
+    for (symbol <- options.alphabet) {
+      addToDictionary(Vector(symbol))
+    }
     lastOutputOption = None
   }
 
@@ -76,7 +63,7 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
             matchCodes(remainingCodesBitStrings, output)
 
           case None =>
-            assert(code == nextCode)
+            assert(code == _nextCode)
             val lastOutput = lastOutputOption.get
             val newOutput = lastOutput :+ lastOutput.head
 
@@ -100,27 +87,37 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
   private def addToDictionary(symbols: Seq[Sym]): Unit =
     if (options.maxDictionarySize.forall(dictionary.sizeIs < _)) {
-      for (code <- getNextCode) {
+      for (code <- nextCode) {
         dictionary.put(code, symbols)
       }
     }
 
-  private def getNextCode: Option[Code] =
+  private def nextCode: Option[Code] =
     Option.when(!isMaxCodeWidthExhausted) {
-      val value = nextCode
-      nextCode += 1
+      val value = _nextCode
+      prepareNextCode()
 
       val delta = if (options.codeWidth.earlyChange) 1 else 0
-      if (nextCode + delta == widthIncreaseCode && options.codeWidth.maximumWidth.forall(width < _)) {
+      if (_nextCode + delta >= widthIncreaseCode && options.codeWidth.maximumWidth.forall(width < _)) {
         width += 1
         widthIncreaseCode <<= 1
       }
 
-      if (nextCode == widthIncreaseCode) {
+      if (_nextCode >= widthIncreaseCode) {
         isMaxCodeWidthExhausted = true
       }
 
       value
+    }
+
+  private def prepareNextCode(): Unit = {
+    _nextCode += 1
+    skipReservedCodes()
+  }
+
+  private def skipReservedCodes(): Unit =
+    while (options.clearCode.contains(_nextCode) || options.stopCode.contains(_nextCode)) {
+      _nextCode += 1
     }
 
   def stopped: Boolean = _stopped

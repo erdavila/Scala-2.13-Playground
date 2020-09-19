@@ -20,25 +20,10 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
 
   private def initialize(): Unit = {
     dictionary.clear()
-
-    @tailrec
-    def addToDict(nextCode: Code, symbols: Seq[Sym]): Code =
-      symbols match {
-        case symbol +: rest =>
-          if (options.clearCode.contains(nextCode) || options.stopCode.contains(nextCode)) {
-            addToDict(nextCode + 1, symbols)
-          } else {
-            dictionary.put(Seq(symbol), nextCode)
-            addToDict(nextCode + 1, rest)
-          }
-        case _ => nextCode
-      }
-    val nextCode = addToDict(0, options.alphabet)
-
-    codeProducer = new CodeProducer(
-      options.codeWidth,
-      firstNextCode = (nextCode +: (options.clearCode ++ options.stopCode).map(_ + 1).toSeq).max,
-    )
+    codeProducer = new CodeProducer(options.codeWidth, options.clearCode.toSeq ++ options.stopCode)
+    for (symbol <- options.alphabet) {
+      addToDict(Vector(symbol))
+    }
 
     currentMatch.symbols = Vector.empty
     currentMatch.code = -1
@@ -64,11 +49,7 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
 
             val newOutput = codeProducer.toBitString(currentMatch.code)
 
-            if (options.maxDictionarySize.forall(dictionary.size < _)) {
-              for (code <- codeProducer.nextCode) {
-                dictionary.put(tentativeMatchedSymbols, code)
-              }
-            }
+            addToDict(tentativeMatchedSymbols)
 
             currentMatch.symbols = Vector(symbol)
             currentMatch.code = dictionary(currentMatch.symbols)
@@ -76,6 +57,13 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
             matchSymbols(remainingSymbols, output :+ newOutput)
         }
       case _ => output
+    }
+
+  private def addToDict(symbols: Vector[Sym]): Unit =
+    if (options.maxDictionarySize.forall(dictionary.size < _)) {
+      for (code <- codeProducer.nextCode) {
+        dictionary.put(symbols, code)
+      }
     }
 
   def finish(): Seq[BitString] =

@@ -9,9 +9,7 @@ case class Options[Sym](
   clearCode: Option[Code] = None,
   stopCode: Option[Code] = None,
 ) {
-  require(alphabet.nonEmpty)
-  require(codeWidth.initialWidth >= BitUtils.bitsRequired(alphabet.size))
-  for (c <- clearCode) { require(codeWidth.initialWidth >= BitUtils.bitsRequired(c)) }
-  for (s <- stopCode) { require(codeWidth.initialWidth >= BitUtils.bitsRequired(s)) }
-  require(!maxDictionarySize.exists(_ < alphabet.size))
+  require(alphabet.sizeIs >= 2)
+  require(codeWidth.initialWidth >= BitUtils.bitsRequired(alphabet.size + clearCode.size + stopCode.size - 1))
+  require(maxDictionarySize.forall(_ >= alphabet.size))
 }

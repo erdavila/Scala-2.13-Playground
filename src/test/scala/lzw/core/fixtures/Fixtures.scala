@@ -482,7 +482,7 @@ object Fixtures {
       alphabet = Seq(X, o),
       codeWidth = CodeWidthOptions.fixedWidth(4),
       clearCode = Some(3),
-      stopCode = Some(4),
+      stopCode = Some(5),
     ),
     /*
       ************** ENCODING **************
@@ -490,55 +490,77 @@ object Fixtures {
       --------+-------+--------+-----------
               |       |        | b0: X
               |       |        | b1: o
-              |       |        | b10: -
+              |       |        | b10: !
               |       |        | b11: CLEAR
-              |       |        | b100: STOP
+              |       |        | b100: !
+              |       |        | b101: STOP
               | X     |        |
-      X       | o     | b0000  | b101: Xo
-      o       | X     | b0001  | b110: oX
+      X       | o     | b0000  | b10: Xo
+      o       | X     | b0001  | b100: oX
       X       | o     |        |
-      Xo      | X     | b0101  | b111: XoX
-      X       | CLEAR | b0000  |
+      Xo      | X     | b0010  | b110: XoX
+      X       | o     |        |
+      Xo      | X     |        |
+      XoX     | o     | b0110  | b111: XoXo
+      o       | X     |        |
+      oX      | CLEAR | b0100  |
               |       | b0011  |-----------
               |       |        | b0: X
               |       |        | b1: o
-              |       |        | b10: -
+              |       |        | b10: !
               |       |        | b11: CLEAR
-              |       |        | b100: STOP
+              |       |        | b100: !
+              |       |        | b101: STOP
               | o     |        |
-      o       | X     | b0001  | b101: oX
+      o       | X     | b0001  | b10: oX
       X       | STOP  | b0000  |
-              |       | b0100  |
+              |       | b0101  |
 
       ********* DECODING *********
       Input | Output | Dictionary
       ------+--------+-----------
             |        | b0: X
             |        | b1: o
-            |        | b10: -
+            |        | b10: !
             |        | b11: CLEAR
-            |        | b100: STOP
+            |        | b100: !
+            |        | b101: STOP
       b0000 | X      |
-      b0001 | o      | b101: Xo
-      b0101 | Xo     | b110: oX
-      b0000 | X      | b111: XoX
+      b0001 | o      | b10: Xo
+      b0010 | Xo     | b100: oX
+      b0110 | ?      | b110: ?
+            | XoX    | b110: XoX
+      b0100 | oX     | b111: XoXo
       b0011 | CLEAR  |-----------
             |        | b0: X
             |        | b1: o
-            |        | b10: -
+            |        | b10: !
             |        | b11: CLEAR
-            |        | b100: STOP
+            |        | b100: !
+            |        | b101: STOP
       b0001 | o      |
-      b0000 | X      | b101: oX
-      b0100 | STOP
+      b0000 | X      | b10: oX
+      b0101 | STOP
      */
     steps = Seq(
-      Encode(Seq(X, o, X, o, X), expectedBits = Seq("0000", "0001", "0101"), assertions = Seq((_.statistics.dictionarySize, 5))),
-
-      Reset(                     expectedBits = Seq("0000", "0011"),         assertions = Seq((_.statistics.dictionarySize, 2))),
-
-      Encode(Seq(o, X),          expectedBits = Seq("0001"),                 assertions = Seq((_.statistics.dictionarySize, 3))),
-      Finish(                    expectedBits = Seq("0000", "0100"),         assertions = Seq((_.statistics.dictionarySize, 3))),
+      Encode(
+        Seq(X, o, X, o, X, o, X, o, X),
+        expectedBits = Seq("0000", "0001", "0010", "0110"),
+        assertions = Seq((_.statistics.dictionarySize, 6))
+      ),
+      Reset(
+        expectedBits = Seq("0100", "0011"),
+        assertions = Seq((_.statistics.dictionarySize, 2))
+      ),
+      Encode(
+        Seq(o, X),
+        expectedBits = Seq("0001"),
+        assertions = Seq((_.statistics.dictionarySize, 3))
+      ),
+      Finish(
+        expectedBits = Seq("0000", "0101"),
+        assertions = Seq((_.statistics.dictionarySize, 3))
+      ),
     ),
     dictionarySizeAtTheEnd = 3,
   )
