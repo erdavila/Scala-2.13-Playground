@@ -10,6 +10,14 @@ case class Options[Sym](
   stopCode: Option[Code] = None,
 ) {
   require(alphabet.sizeIs >= 2)
-  require(codeWidth.initialWidth >= BitUtils.bitsRequired(alphabet.size + clearCode.size + stopCode.size - 1))
+  require(codeWidth.initialWidth >= Options.minInitialCodeWidth(alphabet.size, clearCode, stopCode))
   require(maxDictionarySize.forall(_ >= alphabet.size))
+}
+
+object Options {
+  def minInitialCodeWidth(alphabetSize: Int, clearCode: Option[Code], stopCode: Option[Code]): Int = {
+    val numberOfCodes = alphabetSize + clearCode.size + stopCode.size
+    val highestCode = ((numberOfCodes - 1) +: (clearCode ++ stopCode).toSeq).max
+    BitUtils.bitsRequired(highestCode)
+  }
 }

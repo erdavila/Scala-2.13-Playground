@@ -33,7 +33,7 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
   def decode(codesBitStrings: Seq[BitString]): Seq[Sym] = {
     require(codesBitStrings.forall(_.length > 0))
-    matchCodes(codesBitStrings, Seq.empty)
+    matchCodes(codesBitStrings, Vector.empty)
   }
 
   @tailrec
@@ -41,39 +41,43 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     codesBitStrings match {
       case _ +: _ if _stopped =>
         throw ExceedingCodesException(output, codesBitStrings.size)
-
       case codeBitString +: remainingCodesBitStrings =>
-        require(codeBitString.length == width)
-        val code = toCode(codeBitString)
-        dictionary.get(code) match {
-          case Some(newOutput) =>
-            for (lastOutput <- lastOutputOption) {
-              addToDictionary(lastOutput :+ newOutput.head)
-            }
-
-            lastOutputOption = Some(newOutput)
-            matchCodes(remainingCodesBitStrings, output ++ newOutput)
-
-          case None if options.clearCode.contains(code) =>
-            initialize()
-            matchCodes(remainingCodesBitStrings, output)
-
-          case None if options.stopCode.contains(code) =>
-            _stopped = true
-            matchCodes(remainingCodesBitStrings, output)
-
-          case None =>
-            assert(code == _nextCode)
-            val lastOutput = lastOutputOption.get
-            val newOutput = lastOutput :+ lastOutput.head
-
-            addToDictionary(newOutput)
-
-            lastOutputOption = Some(newOutput)
-            matchCodes(remainingCodesBitStrings, output ++ newOutput)
-        }
+        val newOutput = matchCode(codeBitString)
+        matchCodes(remainingCodesBitStrings, output ++ newOutput)
       case _ => output
     }
+
+  private def matchCode(codeBitString: BitString): Seq[Sym] = {
+    require(codeBitString.length == width, s"expected code with length $width instead of ${codeBitString.length}")
+    val code = toCode(codeBitString)
+    dictionary.get(code) match {
+      case Some(newOutput) =>
+        for (lastOutput <- lastOutputOption) {
+          addToDictionary(lastOutput :+ newOutput.head)
+        }
+
+        lastOutputOption = Some(newOutput)
+        newOutput
+
+      case None if options.clearCode.contains(code) =>
+        initialize()
+        Vector.empty
+
+      case None if options.stopCode.contains(code) =>
+        _stopped = true
+        Vector.empty
+
+      case None =>
+        assert(code == _nextCode)
+        val lastOutput = lastOutputOption.get
+        val newOutput = lastOutput :+ lastOutput.head
+
+        addToDictionary(newOutput)
+
+        lastOutputOption = Some(newOutput)
+        newOutput
+    }
+  }
 
   private def toCode(bitString: BitString): Code = {
     val bytes = bitString.lsb.bytes

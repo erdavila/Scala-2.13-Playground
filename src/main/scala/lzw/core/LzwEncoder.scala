@@ -30,34 +30,38 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
   }
 
   def encode(symbols: Seq[Sym]): Seq[BitString] =
-    matchSymbols(symbols, Seq.empty)
+    matchSymbols(symbols, Vector.empty)
 
   @tailrec
   private def matchSymbols(symbols: Seq[Sym], output: Seq[BitString]): Seq[BitString] =
     symbols match {
       case symbol +: remainingSymbols =>
-        val tentativeMatchedSymbols = currentMatch.symbols :+ symbol
-        dictionary.get(tentativeMatchedSymbols) match {
-          case Some(code) =>
-            currentMatch.symbols = tentativeMatchedSymbols
-            currentMatch.code = code
-
-            matchSymbols(remainingSymbols, output)
-          case None =>
-            assert(tentativeMatchedSymbols.sizeIs >= 2)
-            assert(currentMatch.symbols.nonEmpty)
-
-            val newOutput = codeProducer.toBitString(currentMatch.code)
-
-            addToDict(tentativeMatchedSymbols)
-
-            currentMatch.symbols = Vector(symbol)
-            currentMatch.code = dictionary(currentMatch.symbols)
-
-            matchSymbols(remainingSymbols, output :+ newOutput)
-        }
+        val newOutputOption = matchSymbol(symbol)
+        matchSymbols(remainingSymbols, output ++ newOutputOption)
       case _ => output
     }
+
+  private def matchSymbol(symbol: Sym): Option[BitString] = {
+    val tentativeMatchedSymbols = currentMatch.symbols :+ symbol
+    dictionary.get(tentativeMatchedSymbols) match {
+      case Some(code) =>
+        currentMatch.symbols = tentativeMatchedSymbols
+        currentMatch.code = code
+        None
+      case None =>
+        assert(tentativeMatchedSymbols.sizeIs >= 2)
+        assert(currentMatch.symbols.nonEmpty)
+
+        val newOutput = codeProducer.toBitString(currentMatch.code)
+
+        addToDict(tentativeMatchedSymbols)
+
+        currentMatch.symbols = Vector(symbol)
+        currentMatch.code = dictionary(currentMatch.symbols)
+
+        Some(newOutput)
+    }
+  }
 
   private def addToDict(symbols: Vector[Sym]): Unit =
     if (options.maxDictionarySize.forall(dictionary.size < _)) {
