@@ -127,6 +127,57 @@ class GeneratedCasesTest extends AnyFunSpec {
       outputCodesBits = Seq("00", "00", "01").map(BitString.parse)
     )
 
+  it should behave like
+    theCase(
+      "reset()ing when width should increase",
+      Options(
+        alphabet = 0 until 2,
+        codeWidth = CodeWidthOptions(
+          initialWidth = 2,
+          maximumWidth = None,
+          earlyChange = false
+        ),
+        maxDictionarySize = None,
+        clearCode = Some(0),
+        stopCode = None
+      ),
+      inputSymbolsParts = List(Vector(0, 0), Vector(0, 0)),
+      /*
+        ***************** ENCODING *****************
+        Match | Input  | Output | Dict      | Width
+        ------+--------+--------+-----------+------
+              |        |        | b0: CLEAR | 2
+              |        |        | b1: 0     |
+              |        |        | b10: 1    |
+              | 0      |        |           |
+        0     | 0      | b01    | b11: 0 0  |
+        0     | reset  | b01    |           | 3
+              |        | b000   |-----------|------
+              |        |        | b0: CLEAR | 2
+              |        |        | b1: 0     |
+              |        |        | b10: 1    |
+              | 0      |        |           |
+        0     | 0      | b01    | b11: 0 0  |
+        0     | finish | b01    |           |
+
+        ************* DECODING *************
+        Input  | Output | Dict      | Width
+        -------+--------+-----------+------
+               |        | b0: CLEAR | 2
+               |        | b1: 0     |
+               |        | b10: 1    |
+        b01    | 0      |           |
+        b01    | 0      | b11: 0 0  | 3
+        b000   | CLEAR  |-----------|------
+               |        | b0: CLEAR | 2
+               |        | b1: 0     |
+               |        | b10: 1    |
+        b01    | 0      |           |
+        b01    | 0      | b11: 0 0  | 3
+       */
+      outputCodesBits = Seq("01", "01", "000", "01", "01").map(BitString.parse)
+    )
+
   private def theCase(
     name: String,
     options: Options[Int],

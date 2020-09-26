@@ -64,24 +64,26 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
   }
 
   private def addToDict(symbols: Vector[Sym]): Unit =
-    if (options.maxDictionarySize.forall(dictionary.size < _)) {
-      for (code <- codeProducer.nextCode) {
-        dictionary.put(symbols, code)
-      }
-    }
+    withNextCode { dictionary.put(symbols, _) }
 
   def finish(): Seq[BitString] = {
     val flushed = flush().toSeq
-    if (options.maxDictionarySize.forall(dictionary.size < _)) {
-      codeProducer.nextCode
-    }
+    forceCodeWithEvaluation()
     flushed ++ options.stopCode.map(codeProducer.toBitString)
   }
+
+  private def withNextCode(f: Code => Unit): Unit =
+    if (options.maxDictionarySize.forall(dictionary.size < _)) {
+      for (code <- codeProducer.nextCode) {
+        f(code)
+      }
+    }
 
   def reset(): Seq[BitString] =
     options.clearCode match {
       case Some(code) =>
         val remaining = flush()
+        forceCodeWithEvaluation()
         val clearCode = codeProducer.toBitString(code)
         initialize()
         remaining.toSeq :+ clearCode
@@ -92,6 +94,9 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
     Option.when(currentMatch.symbols.nonEmpty) {
       codeProducer.toBitString(currentMatch.code)
     }
+
+  private def forceCodeWithEvaluation(): Unit =
+    withNextCode { _ => }
 
   def statistics: Statistics = Statistics(dictionary.size)
   def maxCodeWidthExhausted: Boolean = codeProducer.maxWidthExhausted
