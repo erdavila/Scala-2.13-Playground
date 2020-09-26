@@ -70,8 +70,11 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
       }
     }
 
-  def finish(): Seq[BitString] =
-    flush().toSeq ++ options.stopCode.map(codeProducer.toBitString)
+  def finish(): Seq[BitString] = {
+    val flushed = flush().toSeq
+    codeProducer.nextCode
+    flushed ++ options.stopCode.map(codeProducer.toBitString)
+  }
 
   def reset(): Seq[BitString] =
     options.clearCode match {
