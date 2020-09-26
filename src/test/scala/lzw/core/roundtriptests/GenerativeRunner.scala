@@ -43,12 +43,17 @@ object GenerativeRunner {
         for (resets <- Iterator.range(0, resetsAmounts))
           yield split(inputSymbols, resets + 1)
       }
+      variableWidth <- Iterator(false, true)
+      earlyChange <- Iterator(false, true)
       initialWidth <- {
-        val minInitialWidth = Options.minInitialCodeWidth(alphabetSize, clearCode, stopCode)
+        val minInitialWidth = Options.minInitialCodeWidth(alphabetSize, clearCode, stopCode, variableWidth, earlyChange)
         Iterator.range(0, 4).map(minInitialWidth + _)
       }
-      maxWidth <- Iterator(None) ++ Iterator.range(0, 5).map(n => Some(initialWidth + n))
-      earlyChange <- Iterator(false, true)
+      maxWidth <- if (variableWidth) {
+        Iterator(None) ++ Iterator.range(1, 5).map(n => Some(initialWidth + n))
+      } else {
+        Iterator(Some(initialWidth))
+      }
       maxDictSize <- Iterator(None) ++ Iterator.range(alphabetSize, 2 * alphabetSize).map(Some(_))
       options = Options(
         alphabet = 0 until alphabetSize,
