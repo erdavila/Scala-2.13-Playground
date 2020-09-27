@@ -72,7 +72,9 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
 
   def finish(): Seq[BitString] = {
     val flushed = flush().toSeq
-    codeProducer.nextCode
+    if (options.maxDictionarySize.forall(dictionary.size < _)) {
+      codeProducer.nextCode
+    }
     flushed ++ options.stopCode.map(codeProducer.toBitString)
   }
 

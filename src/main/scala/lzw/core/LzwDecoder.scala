@@ -102,7 +102,10 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
       prepareNextCode()
 
       val delta = if (options.codeWidth.earlyChange) 1 else 0
-      if (_nextCode + delta >= widthIncreaseCode && options.codeWidth.maximumWidth.forall(width < _)) {
+      if (_nextCode + delta >= widthIncreaseCode
+        && options.codeWidth.maximumWidth.forall(width < _)
+        && options.maxDictionarySize.forall(dictionary.size + 1 < _)
+      ) {
         width += 1
         widthIncreaseCode <<= 1
       }

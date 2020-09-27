@@ -89,6 +89,44 @@ class GeneratedCasesTest extends AnyFunSpec {
       outputCodesBits = Seq("01", "01", "01", "11").map(BitString.parse)
     )
 
+  it should behave like
+    theCase(
+      "width should not increase when dictionary is full",
+      Options(
+        alphabet = 0 until 2,
+        codeWidth = CodeWidthOptions(
+          initialWidth = 2,
+          maximumWidth = None,
+          earlyChange = true
+        ),
+        maxDictionarySize = Some(3),
+        clearCode = None,
+        stopCode = None
+      ),
+      inputSymbolsParts = List(Vector(0, 0, 1)),
+      /*
+        **************** ENCODING ****************
+        Match | Input  | Output | Dict     | Width
+        ------+--------+--------+----------+------
+              |        |        | b0: 0    | 2
+              |        |        | b1: 1    |
+              | 0      |        |          |
+        0     | 0      | b00    | b10: 0 0 |
+        0     | 1      | b00    | *AT MAX* |
+        1     | finish | b01
+
+        ************* DECODING *************
+        Input  | Output | Dict      | Width
+        -------+--------+-----------+------
+               |        | b0: 0     | 2
+               |        | b1: 1     |
+        b00    | 0      |           |
+        b00    | 0      | b10: 0 0  |
+        b01    | 1
+       */
+      outputCodesBits = Seq("00", "00", "01").map(BitString.parse)
+    )
+
   private def theCase(
     name: String,
     options: Options[Int],
