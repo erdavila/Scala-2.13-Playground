@@ -45,6 +45,50 @@ class GeneratedCasesTest extends AnyFunSpec {
       outputCodesBits = Seq("01", "01", "000").map(BitString.parse)
     )
 
+  it should behave like
+    theCase(
+      "maxWidthExhausted should be true on dictionary initialization",
+      Options(
+        alphabet = 0 until 2,
+        codeWidth = CodeWidthOptions(
+          initialWidth = 2,
+          maximumWidth = Some(2),
+          earlyChange = false
+        ),
+        maxDictionarySize = None,
+        clearCode = Some(0),
+        stopCode = Some(3)
+      ),
+      inputSymbolsParts = List(Vector(0, 0, 0)),
+      /*
+        ***************** ENCODING *****************
+        Match | Input  | Output | Dict      | Width
+        ------+--------+--------+-----------+------
+              |        |        | b0: CLEAR | 2
+              |        |        | b1: 0     |
+              |        |        | b10: 1    |
+              |        |        | b11: STOP |
+              | 0      |        |           |
+        0     | 0      | b01    | *AT MAX * |
+        0     | 0      | b01    |           |
+        0     | finish | b01    |           |
+              |        | b11    |           |
+
+        ************* DECODING *************
+        Input  | Output | Dict      | Width
+        -------+--------+-----------+------
+               |        | b0: CLEAR | 2
+               |        | b1: 0     |
+               |        | b10: 1    |
+               |        | b11: STOP |
+        b01    | 0      |           |
+        b01    | 0      |           |
+        b01    | 0      |           |
+        b11    | STOP   |           |
+       */
+      outputCodesBits = Seq("01", "01", "01", "11").map(BitString.parse)
+    )
+
   private def theCase(
     name: String,
     options: Options[Int],

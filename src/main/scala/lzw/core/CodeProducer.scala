@@ -8,14 +8,15 @@ class CodeProducer(codeWidthOptions: CodeWidthOptions, reservedCodes: Seq[Code])
   private var isMaxWidthExhausted: Boolean = false
 
   private var _nextCode: Code = 0
+  skipReservedCodes()
 
   def maxWidthExhausted: Boolean = isMaxWidthExhausted
 
   def nextCode: Option[Code] =
     Option.when(!isMaxWidthExhausted) {
-      skipReservedCodes()
       val code = _nextCode
       _nextCode += 1
+      skipReservedCodes()
       isMaxWidthExhausted =
         _nextCode >= widthIncreaseCode &&
         !codeWidthOptions.maximumWidth.forall(width < _)
