@@ -1,41 +1,62 @@
 package lzw.core.roundtriptests
 
+import java.util.{Timer, TimerTask}
 import lzw.core._
 import scala.annotation.tailrec
+import scala.concurrent.duration._
 
 object GenerativeRunner {
-  def main(args: Array[String]): Unit =
-    try {
-      for (((options, inputSymbolsParts), i) <- casesIterator.zipWithIndex) {
-        withCase(i, options, inputSymbolsParts) {
-          timing {
-            val encoder = new LzwEncoder(options)
-            val unfinishedOutputCodes = inputSymbolsParts.zipWithIndex
-              .map { case (symbols, i) =>
-                val flushedCodes = if (i > 0) encoder.reset() else Seq.empty
-                flushedCodes ++ encoder.encode(symbols)
-              }
-              .reduce(_ ++ _)
-            val outputCodes = unfinishedOutputCodes ++ encoder.finish()
 
-            val decoder = new LzwDecoder(options)
-            val decodedSymbols = decoder.decode(outputCodes)
-            val inputSymbols = inputSymbolsParts.reduce(_ ++ _)
-            assert(decodedSymbols == inputSymbols, s"$decodedSymbols != $inputSymbols [$outputCodes]")
+  private val InputSizes = 0 until 15
+  private def alphabetSizes(inputSize: Int): Range = 2 until (inputSize + 10)
+
+  def main(args: Array[String]): Unit = {
+    val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
+    val taskRunner = new TaskRunner(threadCount)
+
+    val progress = new Progress(taskRunner.processedTasksCount)
+    try {
+      for (((options, inputSymbolsParts), index) <- casesIterator.zipWithIndex) {
+        val inputSize = inputSymbolsParts.view.map(_.size).sum
+        progress.prefix = s"$inputSize->${InputSizes.last} ${options.alphabet.size}->${alphabetSizes(inputSize).last}"
+
+        taskRunner.submit {
+          withCase(options, inputSymbolsParts, index) {
+            processCase(options, inputSymbolsParts)
           }
         }
       }
+
+      taskRunner.join()
     } finally {
-      timing.show()
+      progress.stop()
+      println()
+      println(s"Total duration: ${progress.totalDuration.toNanos / 1.second.toNanos.toDouble} s")
+      println(s"Enqueue wait time (ns): ${taskRunner.enqueueWaitTime}")
+      println(s"Dequeue wait time (ns): ${taskRunner.dequeueWaitTime}")
     }
+  }
+
+  private def processCase(options: Options[Sym], inputSymbolsParts: Seq[Seq[Sym]]): Unit = {
+    val encoder = new LzwEncoder(options)
+    val unfinishedOutputCodes = inputSymbolsParts.zipWithIndex
+      .map { case (symbols, i) =>
+        val flushedCodes = if (i > 0) encoder.reset() else Seq.empty
+        flushedCodes ++ encoder.encode(symbols)
+      }
+      .reduce(_ ++ _)
+    val outputCodes = unfinishedOutputCodes ++ encoder.finish()
+
+    val decoder = new LzwDecoder(options)
+    val decodedSymbols = decoder.decode(outputCodes)
+    val inputSymbols = inputSymbolsParts.reduce(_ ++ _)
+    assert(decodedSymbols == inputSymbols, s"$decodedSymbols != $inputSymbols [$outputCodes]")
+  }
 
   private def casesIterator: Iterator[(Options[Sym], Seq[Seq[Sym]])] = {
-    val InputSizes = 0 until 15
     for {
       inputSize <- InputSizes.iterator
-      alphabetSizes = 2 until (inputSize + 10)
-      alphabetSize <- alphabetSizes.iterator
-      _ = print(s"\r$inputSize->${InputSizes.last} $alphabetSize->${alphabetSizes.last}")
+      alphabetSize <- alphabetSizes(inputSize).iterator
       inputSymbols <- inputSymbolsIterator(inputSize, alphabetSize)
       (clearCode, stopCode) <- specialCodesIterator(alphabetSize)
       inputSymbolsParts <- {
@@ -129,14 +150,14 @@ object GenerativeRunner {
     }
   }
 
-  def withCase[T](i: Int, options: Options[Sym], inputSymbolsParts: Seq[Seq[Sym]])(fun: => T): T =
+  private def withCase[T](options: Options[Sym], inputSymbolsParts: Seq[Seq[Sym]], index: Int)(fun: => T): T =
     try {
       fun
     } catch {
       case t: Throwable =>
         val message =
           s"""${t.getMessage}
-            |  index = $i
+            |  index = $index
             |  options = $options
             |  inputSymbolsParts = $inputSymbolsParts
             |""".stripMargin.stripLineEnd
@@ -144,48 +165,28 @@ object GenerativeRunner {
         throw new Exception(message, t)
     }
 
-  private object timing {
-    private sealed trait DoingWhat
-    private case object Looping extends DoingWhat
-    private case object Testing extends DoingWhat
+  private class Progress(totalCases: => Long) {
+    var prefix: String = ""
 
-    private var looping: Long = 0
-    private var testing: Long = 0
-    private var doingWhat: DoingWhat = _
-    private var last: Long = _
-
-    def apply[T](f: => T): T =
-      try {
-        transitionTo(Testing)
-        f
-      } finally {
-        transitionTo(Looping)
+    private val begin = System.nanoTime()
+    private val timer = new Timer
+    timer.scheduleAtFixedRate(new TimerTask {
+      override def run(): Unit = {
+        val end = System.nanoTime()
+        val cases = totalCases
+        val durationInNanos = end - begin
+        val durationInSeconds = durationInNanos / 1.second.toNanos
+        val rate = 1.second.toNanos * cases / durationInNanos
+        print(s"\r$prefix: $cases cases ÷ $durationInSeconds s = $rate cases/s")
       }
+    }, 0, 1.second.toMillis)
 
-    private def transitionTo(what: DoingWhat): Unit = {
-      val t = System.nanoTime()
-      assert(what != doingWhat)
+    def stop(): Unit =
+      timer.cancel()
 
-      if (doingWhat != null) {
-        val diff = t - last
-        doingWhat match {
-          case Looping => looping += diff
-          case Testing => testing += diff
-        }
-      }
-
-      doingWhat = what
-      last = System.nanoTime()
-    }
-
-    def show(): Unit = {
-      def toSeconds(time: Long) = s"${time / 1000000000.0} s"
-      println()
-      println("Times")
-      println(s"  testing: ${toSeconds(testing)}")
-      println(s"  looping: ${toSeconds(looping)}")
-      println(s"  total: ${toSeconds(testing + looping)}")
-      println(s"  rate: ${testing.toDouble / looping}")
+    def totalDuration: Duration = {
+      val end = System.nanoTime()
+      (end - begin).nanos
     }
   }
 }
