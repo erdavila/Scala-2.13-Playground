@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 object GenerativeRunner {
 
   private val InputSizes = 0 until 15
-  private def alphabetSizes(inputSize: Int): Range = 2 until (inputSize + 10)
+  private def alphabetSizes(inputSize: Int): Range = 2 until (inputSize + 4)
 
   def main(args: Array[String]): Unit = {
     val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
@@ -60,7 +60,7 @@ object GenerativeRunner {
       inputSymbols <- inputSymbolsIterator(inputSize, alphabetSize)
       (clearCode, stopCode) <- specialCodesIterator(alphabetSize)
       inputSymbolsParts <- {
-        val resetsAmounts = clearCode.fold(1)(_ => 3)
+        val resetsAmounts = clearCode.fold(1)(_ => 2)
         for (resets <- Iterator.range(0, resetsAmounts))
           yield split(inputSymbols, resets + 1)
       }
@@ -68,10 +68,10 @@ object GenerativeRunner {
       earlyChange <- Iterator(false, true)
       initialWidth <- {
         val minInitialWidth = Options.minInitialCodeWidth(alphabetSize, clearCode, stopCode, variableWidth, earlyChange)
-        Iterator.range(0, 4).map(minInitialWidth + _)
+        Iterator.range(0, 3).map(minInitialWidth + _)
       }
       maxWidth <- if (variableWidth) {
-        Iterator(None) ++ Iterator.range(1, 5).map(n => Some(initialWidth + n))
+        Iterator(None) ++ Iterator.range(1, 4).map(n => Some(initialWidth + n))
       } else {
         Iterator(Some(initialWidth))
       }
