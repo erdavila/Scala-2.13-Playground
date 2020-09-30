@@ -11,20 +11,17 @@ class TaskRunner(threadCount: Int) {
   import TaskRunner.Timing
 
   private val queue: BlockingQueue[() => Unit] = new LinkedBlockingQueue[() => Unit](2 * threadCount)
-
-  private sealed trait State
-  private case object Working extends State
-  private case object Finished extends State
-  private case object Aborted extends State
-  private var state: State = Working
+  private var exceptionOption: Option[Throwable] = None
+  private var finished: Boolean = false
 
   private val threads = Array.fill(threadCount)(new TaskThread)
   threads.foreach(_.start())
+  private var aliveThreads = threads
 
   private val putTiming = new Timing
 
   def submit(task: => Unit): Unit = {
-    require(state == Working)
+    require(!finished)
     val task0 = () => task
 
     @tailrec
@@ -40,30 +37,26 @@ class TaskRunner(threadCount: Int) {
   }
 
   def join(): Unit = {
-    require(state == Working)
-    state = Finished
+    require(!finished)
+    finished = true
 
     @tailrec
-    def loop(sleepDuration: Long = 1): Unit = {
+    def waitThreads(sleepDuration: Long = 1): Unit = {
       checkException()
-      if (threads.exists(_.isAlive)) {
+      aliveThreads = aliveThreads.filter(_.isAlive)
+      if (aliveThreads.nonEmpty) {
         Thread.sleep(sleepDuration)
-        loop(2 * sleepDuration)
-      } else {
-        None
+        waitThreads(2 * sleepDuration)
       }
     }
 
-    loop()
+    waitThreads()
   }
 
-  private def checkException(): Unit = {
-    val exceptionOption = threads.view.map(_.exception).find(_ != null)
+  private def checkException(): Unit =
     for (exception <- exceptionOption) {
-      state = Aborted
       throw exception
     }
-  }
 
   def processedTasksCount: Long =
     threads.view.map(_.processedTasksCount).sum
@@ -83,7 +76,7 @@ class TaskRunner(threadCount: Int) {
   }
 
   private class TaskThread extends Thread {
-    var exception: Throwable = _
+    setDaemon(true)
     var processedTasksCount: Long = 0
     val pollTiming = new Timing
 
@@ -93,28 +86,26 @@ class TaskRunner(threadCount: Int) {
         case Some(task) =>
           processedTasksCount += 1
           Try(task()) match {
-            case Failure(e) =>
-              exception = e
-            case Success(_) =>
-              run()
+            case Failure(e) => exceptionOption = Some(e)
+            case Success(_) => run()
           }
         case None => ()
       }
 
     @tailrec
     private def getTask(pollDuration: Long = 1): Option[() => Unit] = {
-      def dequeue(): () => Unit = pollTiming { queue.poll(pollDuration, TimeUnit.MILLISECONDS) }
-      state match {
-        case Working =>
-          val task = dequeue()
-          if (task == null) {
-            getTask(2 * pollDuration)
-          } else {
-            Some(task)
-          }
+      def dequeue(): Option[() => Unit] = pollTiming {
+        val task = queue.poll(pollDuration, TimeUnit.MILLISECONDS)
+        Option(task) // None when value is null
+      }
 
-        case Finished => Option(dequeue()) // None when value is null
-        case Aborted => None
+      if (finished) {
+        dequeue()
+      } else {
+        dequeue() match {
+          case t@Some(_) => t
+          case None => getTask(2 * pollDuration)
+        }
       }
     }
   }
