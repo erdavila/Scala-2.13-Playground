@@ -29,9 +29,9 @@ object GenerativeRunner {
 
       taskRunner.join()
     } finally {
-      progress.stop()
+      val finalStatus = progress.stop()
       println()
-      println(s"Total duration: ${progress.totalDuration.toNanos / 1.second.toNanos.toDouble} s")
+      println(finalStatus)
       println(s"Enqueue wait time (ns): ${taskRunner.enqueueWaitTime}")
       println(s"Dequeue wait time (ns): ${taskRunner.dequeueWaitTime}")
     }
@@ -171,22 +171,21 @@ object GenerativeRunner {
     private val begin = System.nanoTime()
     private val timer = new Timer
     timer.scheduleAtFixedRate(new TimerTask {
-      override def run(): Unit = {
-        val end = System.nanoTime()
-        val cases = totalCases
-        val durationInNanos = end - begin
-        val durationInSeconds = durationInNanos / 1.second.toNanos
-        val rate = 1.second.toNanos * cases / durationInNanos
-        print(s"\r$prefix: $cases cases ÷ $durationInSeconds s = $rate cases/s")
-      }
+      override def run(): Unit = print(s"\r$prefix: $status")
     }, 0, 1.second.toMillis)
 
-    def stop(): Unit =
+    def stop(): String = {
       timer.cancel()
+      status
+    }
 
-    def totalDuration: Duration = {
+    private def status: String = {
       val end = System.nanoTime()
-      (end - begin).nanos
+      val durationInNanos = end - begin
+      val cases = totalCases
+      val durationInSeconds = durationInNanos / 1.second.toNanos
+      val rate = 1.second.toNanos * cases / durationInNanos
+      s"$cases cases ÷ $durationInSeconds s = $rate cases/s"
     }
   }
 }
