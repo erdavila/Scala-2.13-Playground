@@ -9,7 +9,7 @@ case class Options[Sym](
   clearCode: Option[Code] = None,
   stopCode: Option[Code] = None,
 ) {
-  require(alphabet.sizeIs >= 2)
+  require(alphabet.nonEmpty)
   require(
     codeWidth.initialWidth >= Options.minInitialCodeWidth(
       alphabet.size,
@@ -37,6 +37,7 @@ object Options {
       if (!variableWidth) 0
       else if (!earlyChange) 1
       else 2
-    BitUtils.bitsRequired(highestCode + delta)
+    val bitsRequired = BitUtils.bitsRequired(highestCode + delta)
+    math.max(bitsRequired, 1)
   }
 }

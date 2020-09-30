@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 object GenerativeRunner {
 
   private val InputSizes = 0 until 15
-  private def alphabetSizes(inputSize: Int): Range = 2 until (inputSize + 4)
+  private def alphabetSizes(inputSize: Int): Range = 1 until (inputSize + 4)
 
   def main(args: Array[String]): Unit = {
     val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
