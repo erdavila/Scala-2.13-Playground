@@ -45,6 +45,9 @@ class LzwEncoderTest extends AnyFunSuite {
       val outputBitStrings = init ++ last
 
       assert(outputBitStrings == expectedBits.map(BitString.parse))
+      assert(encoder.statistics.inputSymbols == inputSymbols.size)
+      assert(encoder.statistics.outputBits == outputBitStrings.view.map(_.length).sum)
+      assert(encoder.statistics.outputCodes == outputBitStrings.size)
       assert(encoder.statistics.dictionarySize == expectedDictionarySizeAtTheEnd)
     }
 

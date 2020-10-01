@@ -16,6 +16,18 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
     var code: Code = _
   }
 
+  private object stats {
+    var inputSymbols: Int = 0
+    var outputBits: Int = 0
+    var outputCodes: Int = 0
+
+    def count(symbols: Seq[Sym], codes: Seq[BitString]): Unit = {
+      inputSymbols += symbols.size
+      outputBits += codes.view.map(_.length).sum
+      outputCodes += codes.size
+    }
+  }
+
   initialize()
 
   private def initialize(): Unit = {
@@ -29,8 +41,11 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
     currentMatch.code = -1
   }
 
-  def encode(symbols: Seq[Sym]): Seq[BitString] =
-    matchSymbols(symbols, Vector.empty)
+  def encode(symbols: Seq[Sym]): Seq[BitString] = {
+    val codes = matchSymbols(symbols, Vector.empty)
+    stats.count(symbols, codes)
+    codes
+  }
 
   @tailrec
   private def matchSymbols(symbols: Seq[Sym], output: Seq[BitString]): Seq[BitString] =
@@ -69,7 +84,10 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
   def finish(): Seq[BitString] = {
     val flushed = flush().toSeq
     forceCodeWithEvaluation()
-    flushed ++ options.stopCode.map(codeProducer.toBitString)
+
+    val codes = flushed ++ options.stopCode.map(codeProducer.toBitString)
+    stats.count(Seq.empty, codes)
+    codes
   }
 
   private def withNextCode(f: Code => Unit): Unit =
@@ -86,7 +104,10 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
         forceCodeWithEvaluation()
         val clearCode = codeProducer.toBitString(code)
         initialize()
-        remaining.toSeq :+ clearCode
+
+        val codes = remaining.toSeq :+ clearCode
+        stats.count(Seq.empty, codes)
+        codes
       case None => throw new UnsupportedOperationException("reset() is not supported because clear code is unset")
     }
 
@@ -98,10 +119,16 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
   private def forceCodeWithEvaluation(): Unit =
     withNextCode { _ => }
 
-  def statistics: Statistics = Statistics(dictionary.size)
+  def statistics: Statistics = Statistics(
+    stats.inputSymbols,
+    stats.outputBits,
+    stats.outputCodes,
+    dictionary.size
+  )
+
   def maxCodeWidthExhausted: Boolean = codeProducer.maxWidthExhausted
 }
 
 object LzwEncoder {
-  case class Statistics(/*inputSymbols: Int, outputBits: Int, outputCodes: Int,*/ dictionarySize: Int)
+  case class Statistics(inputSymbols: Int, outputBits: Int, outputCodes: Int, dictionarySize: Int)
 }

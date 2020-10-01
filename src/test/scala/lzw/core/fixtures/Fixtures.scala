@@ -225,21 +225,45 @@ object Fixtures {
       Encode(
         Seq(X, o, X, o, X, o, X, o, X, o, X, o),
         expectedBits = Seq("00", "01", "10", "100", "011"),
-        assertions = Seq((_.maxCodeWidthExhausted, false), (_.statistics.dictionarySize, 7)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, false),
+          (_.statistics.inputSymbols, 12),
+          (_.statistics.outputBits, 12),
+          (_.statistics.outputCodes, 5),
+          (_.statistics.dictionarySize, 7),
+        ),
       ),
       Encode(
         Seq(X),
         expectedBits = Seq("110"),
-        assertions = Seq((_.maxCodeWidthExhausted, /*CHANGED*/true), (_.statistics.dictionarySize, 8)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, /*CHANGED*/true),
+          (_.statistics.inputSymbols, 13),
+          (_.statistics.outputBits, 15),
+          (_.statistics.outputCodes, 6),
+          (_.statistics.dictionarySize, 8),
+        ),
       ),
       Encode(
         Seq(o, X, o, X, o, X, o, X, o, X, o),
         expectedBits = Seq("101", "101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, true),
+          (_.statistics.inputSymbols, 24),
+          (_.statistics.outputBits, 21),
+          (_.statistics.outputCodes, 8),
+          (_.statistics.dictionarySize, 8),
+        ),
       ),
       Finish(
         expectedBits = Seq("101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, true),
+          (_.statistics.inputSymbols, 24),
+          (_.statistics.outputBits, 24),
+          (_.statistics.outputCodes, 9),
+          (_.statistics.dictionarySize, 8),
+        ),
       )
     ),
     dictionarySizeAtTheEnd = 8,
@@ -290,21 +314,45 @@ object Fixtures {
       Encode(
         Seq(X, o, X, o, X, o, X, o, X, o, X, o),
         expectedBits = Seq("00", "01", "010", "100", "011"),
-        assertions = Seq((_.maxCodeWidthExhausted, false), (_.statistics.dictionarySize, 7)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, false),
+          (_.statistics.inputSymbols, 12),
+          (_.statistics.outputBits, 13),
+          (_.statistics.outputCodes, 5),
+          (_.statistics.dictionarySize, 7),
+        ),
       ),
       Encode(
         Seq(X),
         expectedBits = Seq("110"),
-        assertions = Seq((_.maxCodeWidthExhausted, /*CHANGED*/true), (_.statistics.dictionarySize, 8)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, /*CHANGED*/true),
+          (_.statistics.inputSymbols, 13),
+          (_.statistics.outputBits, 16),
+          (_.statistics.outputCodes, 6),
+          (_.statistics.dictionarySize, 8),
+        ),
       ),
       Encode(
         Seq(o, X, o, X, o, X, o, X, o, X, o),
         expectedBits = Seq("101", "101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, true),
+          (_.statistics.inputSymbols, 24),
+          (_.statistics.outputBits, 22),
+          (_.statistics.outputCodes, 8),
+          (_.statistics.dictionarySize, 8),
+        ),
       ),
       Finish(
         expectedBits = Seq("101"),
-        assertions = Seq((_.maxCodeWidthExhausted, true), (_.statistics.dictionarySize, 8)),
+        assertions = Seq(
+          (_.maxCodeWidthExhausted, true),
+          (_.statistics.inputSymbols, 24),
+          (_.statistics.outputBits, 25),
+          (_.statistics.outputCodes, 9),
+          (_.statistics.dictionarySize, 8),
+        ),
       ),
     ),
     dictionarySizeAtTheEnd = 8,
@@ -352,13 +400,55 @@ object Fixtures {
       b011  | oX
      */
     steps = Seq(
-      Encode(Seq(X, o, X, o),          expectedBits = Seq("00", "01"),          assertions = Seq((_.statistics.dictionarySize, 4))),
-
-      Encode(Seq(X),                   expectedBits = Seq("10"),                assertions = Seq((_.statistics.dictionarySize, 5))),
-
-      Encode(Seq(o, X, o, X, o, X, o), expectedBits = Seq("100", "011", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
-      Encode(Seq(X, o, X, o, X, o, X), expectedBits = Seq("011", "011", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
-      Finish(                          expectedBits = Seq("011"),               assertions = Seq((_.statistics.dictionarySize, 5))),
+      Encode(
+        Seq(X, o, X, o),
+        expectedBits = Seq("00", "01"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 4),
+          (_.statistics.outputBits, 4),
+          (_.statistics.outputCodes, 2),
+          (_.statistics.dictionarySize, 4),
+        )
+      ),
+      Encode(
+        Seq(X),
+        expectedBits = Seq("10"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 5),
+          (_.statistics.outputBits, 6),
+          (_.statistics.outputCodes, 3),
+          (_.statistics.dictionarySize, 5),
+        )
+      ),
+      Encode(
+        Seq(o, X, o, X, o, X, o),
+        expectedBits = Seq("100", "011", "011"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 12),
+          (_.statistics.outputBits, 15),
+          (_.statistics.outputCodes, 6),
+          (_.statistics.dictionarySize, 5),
+        )
+      ),
+      Encode(
+        Seq(X, o, X, o, X, o, X),
+        expectedBits = Seq("011", "011", "011"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 19),
+          (_.statistics.outputBits, 24),
+          (_.statistics.outputCodes, 9),
+          (_.statistics.dictionarySize, 5),
+        )
+      ),
+      Finish(
+        expectedBits = Seq("011"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 19),
+          (_.statistics.outputBits, 27),
+          (_.statistics.outputCodes, 10),
+          (_.statistics.dictionarySize, 5),
+        )
+      ),
     ),
     dictionarySizeAtTheEnd = 5,
   )
@@ -417,12 +507,44 @@ object Fixtures {
         b011  | oX     | b100: Xo  |
      */
     steps = Seq(
-      Encode(Seq('X', 'o', 'X', 'o', 'X', 'o', 'X'), expectedBits = Seq("00", "10", "011"), assertions = Seq((_.statistics.dictionarySize, 5))),
-
-      Reset(                                         expectedBits = Seq("101", "001"),      assertions = Seq((_.statistics.dictionarySize, 2))),
-
-      Encode(Seq('o', 'X', 'o', 'X'),                expectedBits = Seq("10", "00"),        assertions = Seq((_.statistics.dictionarySize, 4))),
-      Finish(                                        expectedBits = Seq("011"),             assertions = Seq((_.statistics.dictionarySize, 4))),
+      Encode(
+        Seq('X', 'o', 'X', 'o', 'X', 'o', 'X'),
+        expectedBits = Seq("00", "10", "011"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 7),
+          (_.statistics.outputBits, 7),
+          (_.statistics.outputCodes, 3),
+          (_.statistics.dictionarySize, 5),
+        )
+      ),
+      Reset(
+        expectedBits = Seq("101", "001"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 7),
+          (_.statistics.outputBits, 13),
+          (_.statistics.outputCodes, 5),
+          (_.statistics.dictionarySize, 2),
+        )
+      ),
+      Encode(
+        Seq('o', 'X', 'o', 'X'),
+        expectedBits = Seq("10", "00"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 11),
+          (_.statistics.outputBits, 17),
+          (_.statistics.outputCodes, 7),
+          (_.statistics.dictionarySize, 4),
+        )
+      ),
+      Finish(
+        expectedBits = Seq("011"),
+        assertions = Seq(
+          (_.statistics.inputSymbols, 11),
+          (_.statistics.outputBits, 20),
+          (_.statistics.outputCodes, 8),
+          (_.statistics.dictionarySize, 4),
+        )
+      ),
     ),
     dictionarySizeAtTheEnd = 4,
   )
@@ -546,20 +668,40 @@ object Fixtures {
       Encode(
         Seq(X, o, X, o, X, o, X, o, X),
         expectedBits = Seq("0000", "0001", "0010", "0110"),
-        assertions = Seq((_.statistics.dictionarySize, 6))
+        assertions = Seq(
+          (_.statistics.inputSymbols, 9),
+          (_.statistics.outputCodes, 4),
+          (_.statistics.outputBits, 16),
+          (_.statistics.dictionarySize, 6),
+        )
       ),
       Reset(
         expectedBits = Seq("0100", "0011"),
-        assertions = Seq((_.statistics.dictionarySize, 2))
+        assertions = Seq(
+          (_.statistics.inputSymbols, 9),
+          (_.statistics.outputCodes, 6),
+          (_.statistics.outputBits, 24),
+          (_.statistics.dictionarySize, 2),
+        )
       ),
       Encode(
         Seq(o, X),
         expectedBits = Seq("0001"),
-        assertions = Seq((_.statistics.dictionarySize, 3))
+        assertions = Seq(
+          (_.statistics.inputSymbols, 11),
+          (_.statistics.outputCodes, 7),
+          (_.statistics.outputBits, 28),
+          (_.statistics.dictionarySize, 3),
+        )
       ),
       Finish(
         expectedBits = Seq("0000", "0101"),
-        assertions = Seq((_.statistics.dictionarySize, 3))
+        assertions = Seq(
+          (_.statistics.inputSymbols, 11),
+          (_.statistics.outputCodes, 9),
+          (_.statistics.outputBits, 36),
+          (_.statistics.dictionarySize, 3),
+        )
       ),
     ),
     dictionarySizeAtTheEnd = 3,
