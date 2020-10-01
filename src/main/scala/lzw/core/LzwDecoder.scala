@@ -16,6 +16,18 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   private var lastOutputOption: Option[Seq[Sym]] = _
   private var _stopped: Boolean = false
 
+  private object stats {
+    var inputBits: Int = 0
+    var inputCodes: Int = 0
+    var outputSymbols: Int = 0
+
+    def count(codes: Seq[BitString], symbols: Seq[Sym]): Unit = {
+      inputBits += codes.view.map(_.length).sum
+      inputCodes += codes.size
+      outputSymbols += symbols.size
+    }
+  }
+
   initialize()
 
   private def initialize(): Unit = {
@@ -33,7 +45,9 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
   def decode(codesBitStrings: Seq[BitString]): Seq[Sym] = {
     require(codesBitStrings.forall(_.length > 0))
-    matchCodes(codesBitStrings, Vector.empty)
+    val symbols = matchCodes(codesBitStrings, Vector.empty)
+    stats.count(codesBitStrings, symbols)
+    symbols
   }
 
   @tailrec
@@ -129,11 +143,16 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
   def stopped: Boolean = _stopped
 
-  def statistics: Statistics = Statistics(dictionary.size)
+  def statistics: Statistics = Statistics(
+    stats.inputBits,
+    stats.inputCodes,
+    stats.outputSymbols,
+    dictionary.size
+  )
 }
 
 object LzwDecoder {
-  case class Statistics(/*inputBits: Int, inputCodes: Int, outputSymbols: Int, */dictionarySize: Int)
+  case class Statistics(inputBits: Int, inputCodes: Int, outputSymbols: Int, dictionarySize: Int)
 
   case class ExceedingCodesException[Sym](lastSymbols: Seq[Sym], exceedingCodesCount: Int) extends Exception
 }

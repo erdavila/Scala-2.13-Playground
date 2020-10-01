@@ -53,8 +53,10 @@ class LzwDecoderTest extends AnyFunSuite {
     test(fixture.name) {
       val decoder = new LzwDecoder(fixture.options)
 
+      val inputCodes = fixture.codesBits.map(BitString.parse)
+
       val blocks = Iterator.from(1)
-        .scanLeft((Seq.empty[BitString], fixture.codesBits.map(BitString.parse))) { case ((_, remainingCodes), n) =>
+        .scanLeft((Seq.empty[BitString], inputCodes)) { case ((_, remainingCodes), n) =>
           remainingCodes.splitAt(n)
         }
         .drop(1)
@@ -65,6 +67,9 @@ class LzwDecoderTest extends AnyFunSuite {
       val outputSymbols = blocks.flatMap(decoder.decode)
 
       assert(outputSymbols == fixture.symbols)
+      assert(decoder.statistics.inputBits == inputCodes.view.map(_.length).sum)
+      assert(decoder.statistics.inputCodes == inputCodes.size)
+      assert(decoder.statistics.outputSymbols == outputSymbols.size)
       assert(decoder.statistics.dictionarySize == fixture.dictionarySizeAtTheEnd)
     }
   }
