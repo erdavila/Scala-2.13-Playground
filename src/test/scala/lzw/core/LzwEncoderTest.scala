@@ -1,5 +1,6 @@
 package lzw.core
 
+import lzw.TestUtils
 import lzw.bits.BitString
 import lzw.core.fixtures.SteppedEncodingFixture.{Encode, Finish, Reset, Step}
 import lzw.core.fixtures.{Fixture, Fixtures, SteppedEncodingFixture}
@@ -31,16 +32,9 @@ class LzwEncoderTest extends AnyFunSuite {
     test(testName) {
       val encoder = new LzwEncoder(options)
 
-      val blocks = Iterator.from(1)
-        .scanLeft((Seq.empty[Sym], inputSymbols)) { case ((_, remainingSymbols), n) =>
-          remainingSymbols.splitAt(n)
-        }
-        .drop(1)
-        .map(_._1)
-        .takeWhile(_.nonEmpty)
-        .toSeq
+      val blocks = TestUtils.splitInIncreasingSizeGroups(inputSymbols)
 
-      val init = blocks.flatMap(encoder.encode)
+      val init = blocks.flatMap(encoder.encode).toSeq
       val last = encoder.finish()
       val outputBitStrings = init ++ last
 

@@ -1,5 +1,6 @@
 package lzw.core
 
+import lzw.TestUtils
 import lzw.bits.BitString
 import lzw.core.fixtures.{Fixture, Fixtures}
 import org.scalatest.funsuite.AnyFunSuite
@@ -54,19 +55,11 @@ class LzwDecoderTest extends AnyFunSuite {
       val decoder = new LzwDecoder(fixture.options)
 
       val inputCodes = fixture.codesBits.map(BitString.parse)
+      val blocks = TestUtils.splitInIncreasingSizeGroups(inputCodes)
 
-      val blocks = Iterator.from(1)
-        .scanLeft((Seq.empty[BitString], inputCodes)) { case ((_, remainingCodes), n) =>
-          remainingCodes.splitAt(n)
-        }
-        .drop(1)
-        .map(_._1)
-        .takeWhile(_.nonEmpty)
-        .toSeq
+      val outputSymbols = blocks.flatMap(decoder.decode).toSeq
 
-      val outputSymbols = blocks.flatMap(decoder.decode)
-
-      assert(outputSymbols == fixture.symbols)
+      assert(outputSymbols == fixture.symbols.toSeq)
       assert(decoder.statistics.inputBits == inputCodes.view.map(_.length).sum)
       assert(decoder.statistics.inputCodes == inputCodes.size)
       assert(decoder.statistics.outputSymbols == outputSymbols.size)

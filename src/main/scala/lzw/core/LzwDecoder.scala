@@ -50,6 +50,12 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     symbols
   }
 
+  def decode(codeBitString: BitString): Seq[Sym] = {
+    val symbols = matchCode(codeBitString)
+    stats.count(Seq(codeBitString), symbols)
+    symbols
+  }
+
   @tailrec
   private def matchCodes(codesBitStrings: Seq[BitString], output: Seq[Sym]): Seq[Sym] =
     codesBitStrings match {
@@ -140,6 +146,8 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     while (options.clearCode.contains(_nextCode) || options.stopCode.contains(_nextCode)) {
       _nextCode += 1
     }
+
+  def expectedCodeWidth: Int = width
 
   def stopped: Boolean = _stopped
 
