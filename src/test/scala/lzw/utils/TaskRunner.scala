@@ -1,4 +1,4 @@
-package lzw.core.roundtriptests
+package lzw.utils
 
 import java.util.LongSummaryStatistics
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}

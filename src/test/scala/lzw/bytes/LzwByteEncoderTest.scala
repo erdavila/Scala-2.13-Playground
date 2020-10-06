@@ -1,8 +1,8 @@
 package lzw.bytes
 
-import lzw.TestUtils
 import lzw.bits.BitSignificance
 import lzw.bytes.fixtures.{Fixture, Fixtures}
+import lzw.utils.TestUtils
 import org.scalatest.funspec.AnyFunSpec
 
 class LzwByteEncoderTest extends AnyFunSpec {

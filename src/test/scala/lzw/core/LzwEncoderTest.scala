@@ -1,9 +1,9 @@
 package lzw.core
 
-import lzw.TestUtils
 import lzw.bits.BitString
 import lzw.core.fixtures.SteppedEncodingFixture.{Encode, Finish, Reset, Step}
 import lzw.core.fixtures.{Fixture, Fixtures, SteppedEncodingFixture}
+import lzw.utils.TestUtils
 import org.scalatest.funsuite.AnyFunSuite
 
 class LzwEncoderTest extends AnyFunSuite {

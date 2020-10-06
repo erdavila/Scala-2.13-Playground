@@ -1,9 +1,9 @@
 package lzw.core.roundtriptests
 
-import java.util.{Timer, TimerTask}
 import lzw.core._
+import lzw.utils.IterativeCasesUtils.{specialCodesIterator, split, withCase}
+import lzw.utils.{ProgressDisplay, TaskRunner}
 import scala.annotation.tailrec
-import scala.concurrent.duration._
 
 object GenerativeRunner {
 
@@ -14,14 +14,14 @@ object GenerativeRunner {
     val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
     val taskRunner = new TaskRunner(threadCount)
 
-    val progress = new Progress(taskRunner.processedTasksCount)
+    val progress = new ProgressDisplay(taskRunner.processedTasksCount)
     try {
       for (((options, inputSymbolsParts), index) <- casesIterator.zipWithIndex) {
         val inputSize = inputSymbolsParts.view.map(_.size).sum
         progress.prefix = s"$inputSize->${InputSizes.last} ${options.alphabet.size}->${alphabetSizes(inputSize).last}"
 
         taskRunner.submit {
-          withCase(options, inputSymbolsParts, index) {
+          withCase(index, options, "inputSymbolsParts" -> inputSymbolsParts) {
             processCase(options, inputSymbolsParts)
           }
         }
@@ -53,7 +53,7 @@ object GenerativeRunner {
     assert(decodedSymbols == inputSymbols, s"$decodedSymbols != $inputSymbols [$outputCodes]")
   }
 
-  private def casesIterator: Iterator[(Options[Sym], Seq[Seq[Sym]])] = {
+  private def casesIterator: Iterator[(Options[Sym], Seq[Seq[Sym]])] =
     for {
       inputSize <- InputSizes.iterator
       alphabetSize <- alphabetSizes(inputSize).iterator
@@ -88,7 +88,6 @@ object GenerativeRunner {
         stopCode = stopCode,
       )
     } yield (options, inputSymbolsParts)
-  }
 
   private def inputSymbolsIterator(inputSize: Int, alphabetSize: Int): Iterator[Seq[Sym]] = {
     @tailrec
@@ -105,87 +104,5 @@ object GenerativeRunner {
     Iterator.iterate(Option(start))(_.flatMap(increment(Vector.empty)))
       .takeWhile(_.isDefined)
       .map(_.get)
-  }
-
-  private def specialCodesIterator(alphabetSize: Int): Iterator[(Option[Code], Option[Code])] = {
-    def single: Iterator[Code] = Iterator(
-      0,                // !ss⋯s__⋯
-      1,                // s!s⋯s__⋯
-      alphabetSize,     // ss⋯s!__⋯
-      alphabetSize + 1, // ss⋯s_!_⋯
-    )
-
-    def both: Iterator[(Code, Code)] =
-      Iterator(
-        (0, 1),                               // !!sss⋯s___⋯
-        (0, 2),                               // !s!ss⋯s___⋯
-        (0, alphabetSize + 1),                // !sss⋯s!___⋯
-        (0, alphabetSize + 2),                // !sss⋯s_!__⋯
-        (1, 2),                               // s!!ss⋯s___⋯
-        (1, 3),                               // s!s!s⋯s___⋯
-        (1, alphabetSize + 1),                // s!ss⋯s!___⋯
-        (1, alphabetSize + 2),                // s!ss⋯s_!__⋯
-        (alphabetSize, alphabetSize + 1),     // sss⋯s!!___⋯
-        (alphabetSize, alphabetSize + 2),     // sss⋯s!_!__⋯
-        (alphabetSize + 1, alphabetSize + 2), // sss⋯s_!!__⋯
-        (alphabetSize + 1, alphabetSize + 3), // sss⋯s_!_!_⋯
-      )
-
-    (
-      Iterator((None, None)) ++
-        (for (c <- single) yield (Some(c), None)) ++
-        (for (c <- single) yield (None, Some(c))) ++
-        (for ((c1, c2) <- both) yield (Some(c1), Some(c2))) ++
-        (for ((c1, c2) <- both) yield (Some(c2), Some(c1)))
-    ).distinct
-  }
-
-  private def split(symbols: Seq[Sym], parts: Int): Seq[Seq[Sym]] = {
-    require(parts >= 1)
-    if (parts == 1) {
-      Seq(symbols)
-    } else {
-      val (part, rest) = symbols.splitAt(symbols.size / parts)
-      part +: split(rest, parts - 1)
-    }
-  }
-
-  private def withCase[T](options: Options[Sym], inputSymbolsParts: Seq[Seq[Sym]], index: Int)(fun: => T): T =
-    try {
-      fun
-    } catch {
-      case t: Throwable =>
-        val message =
-          s"""${t.getMessage}
-            |  index = $index
-            |  options = $options
-            |  inputSymbolsParts = $inputSymbolsParts
-            |""".stripMargin.stripLineEnd
-
-        throw new Exception(message, t)
-    }
-
-  private class Progress(totalCases: => Long) {
-    var prefix: String = ""
-
-    private val begin = System.nanoTime()
-    private val timer = new Timer
-    timer.scheduleAtFixedRate(new TimerTask {
-      override def run(): Unit = print(s"\r$prefix: $status")
-    }, 0, 1.second.toMillis)
-
-    def stop(): String = {
-      timer.cancel()
-      status
-    }
-
-    private def status: String = {
-      val end = System.nanoTime()
-      val durationInNanos = end - begin
-      val cases = totalCases
-      val durationInSeconds = durationInNanos / 1.second.toNanos
-      val rate = 1.second.toNanos * cases / durationInNanos
-      s"$cases cases ÷ $durationInSeconds s = $rate cases/s"
-    }
   }
 }

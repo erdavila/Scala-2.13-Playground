@@ -1,8 +1,8 @@
 package lzw.core
 
-import lzw.TestUtils
 import lzw.bits.BitString
 import lzw.core.fixtures.{Fixture, Fixtures}
+import lzw.utils.TestUtils
 import org.scalatest.funsuite.AnyFunSuite
 
 class LzwDecoderTest extends AnyFunSuite {
