@@ -2,7 +2,6 @@ package lzw.core
 
 import lzw.bits.BitString
 import lzw.core.LzwEncoder.Statistics
-import scala.annotation.tailrec
 import scala.collection.mutable
 
 class LzwEncoder[Sym](val options: Options[Sym]) {
@@ -42,19 +41,16 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
   }
 
   def encode(symbols: Seq[Sym]): Seq[BitString] = {
-    val codes = matchSymbols(symbols, Vector.empty)
+    val buffer = mutable.ArrayBuffer.empty[BitString]
+    for (symbol <- symbols) {
+      val codeOption = matchSymbol(symbol)
+      buffer.appendAll(codeOption)
+    }
+
+    val codes = buffer.toVector
     stats.count(symbols, codes)
     codes
   }
-
-  @tailrec
-  private def matchSymbols(symbols: Seq[Sym], output: Seq[BitString]): Seq[BitString] =
-    symbols match {
-      case symbol +: remainingSymbols =>
-        val newOutputOption = matchSymbol(symbol)
-        matchSymbols(remainingSymbols, output ++ newOutputOption)
-      case _ => output
-    }
 
   private def matchSymbol(symbol: Sym): Option[BitString] = {
     val tentativeMatchedSymbols = currentMatch.symbols :+ symbol

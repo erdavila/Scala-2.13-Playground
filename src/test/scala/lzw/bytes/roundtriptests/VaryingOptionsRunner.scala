@@ -107,7 +107,8 @@ object VaryingOptionsRunner {
   private def loadContent(): Array[Byte] = {
     val zipStream = new ZipInputStream(getClass.getResourceAsStream("/shakespeares-works_TXT_FolgerShakespeare.zip"))
     try {
-      while (zipStream.getNextEntry.getName != "hamlet_TXT_FolgerShakespeare.txt") {}
+      val Filename = "hamlet_TXT_FolgerShakespeare.txt"
+      while (zipStream.getNextEntry.getName != Filename) {}
 
       val accumulator = ArrayBuffer.empty[Byte]
       val buffer = new Array[Byte](1024)
