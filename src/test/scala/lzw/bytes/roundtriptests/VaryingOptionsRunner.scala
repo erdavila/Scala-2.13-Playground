@@ -83,7 +83,9 @@ object VaryingOptionsRunner {
       } else {
         Iterator(Some(initialWidth))
       }
-      maxDictSize <- (Iterator(None) ++ Iterator.range(BytesAlphabetSize, 2 * BytesAlphabetSize).map(Some(_))).take(1) // !!
+      maxDictSize <- Iterator(None) ++
+        (0 to 2).map(n => Some(BytesAlphabetSize + n)) ++
+        (-2 to 2).map(n => Some(2 * BytesAlphabetSize + n))
       packingOrder <- Iterator(BitSignificance.LSB, BitSignificance.MSB)
       options = Options(
         codeWidth = CodeWidthOptions(
@@ -91,7 +93,7 @@ object VaryingOptionsRunner {
           maximumWidth = maxWidth,
           earlyChange = earlyChange
         ),
-//        maxDictionarySize = maxDictSize, !!
+        maxDictionarySize = maxDictSize,
 //        clearCode = clearCode, !!
 //        stopCode = stopCode !!
         packingOrder = packingOrder

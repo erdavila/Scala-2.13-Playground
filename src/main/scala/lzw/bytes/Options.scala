@@ -7,12 +7,14 @@ import lzw.core.Code
 
 case class Options(
   codeWidth: CodeWidthOptions,
+  maxDictionarySize: Option[Int] = None,
   packingOrder: BitSignificance = BitSignificance.LSB
 ) {
   private[bytes] def toCoreOptions: core.Options[Byte] =
     core.Options(
       alphabet = (0 until BytesAlphabetSize).map(_.toByte),
-      codeWidth = codeWidth
+      codeWidth = codeWidth,
+      maxDictionarySize = maxDictionarySize
     )
 }
 
