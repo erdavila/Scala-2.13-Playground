@@ -72,17 +72,17 @@ object VaryingOptionsRunner {
   private def optionsIterator: Iterator[Options] =
     for {
       (clearCode, stopCode) <- specialCodesIterator(BytesAlphabetSize).take(1) // !!
-      variableWidth <- Iterator(false, true).drop(1) // !!
-      earlyChange <- Iterator(false, true).take(1) // !!
+      variableWidth <- Iterator(false, true)
+      earlyChange <- Iterator(false, true)
       initialWidth <- {
         val minInitialWidth = Options.minInitialCodeWidth(clearCode, stopCode, variableWidth, earlyChange)
         Iterator.range(0, 3).map(minInitialWidth + _)
       }
-      maxWidth <- (if (variableWidth) {
+      maxWidth <- if (variableWidth) {
         Iterator(None) ++ Iterator.range(1, 4).map(n => Some(initialWidth + n))
       } else {
         Iterator(Some(initialWidth))
-      }).take(1) // !!
+      }
       maxDictSize <- (Iterator(None) ++ Iterator.range(BytesAlphabetSize, 2 * BytesAlphabetSize).map(Some(_))).take(1) // !!
       packingOrder <- Iterator(BitSignificance.LSB, BitSignificance.MSB)
       options = Options(
