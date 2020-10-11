@@ -11,9 +11,9 @@ class BitStringDecoder(packingOrderFirst: BitSignificance) {
     @tailrec
     def loop(bytes: Array[Byte]): Array[Byte] =
       if (buffer.length >= java.lang.Byte.SIZE) {
-        val (newBuffer, byteBits) = buffer.end(packingOrderFirst).splitAt(java.lang.Byte.SIZE)
+        val (byteBits, newBuffer) = buffer.end(packingOrderFirst).splitAt(java.lang.Byte.SIZE)
         buffer = newBuffer
-        loop(bytes :+ byteBits.lsb.bytes.toSeq.head)
+        loop(bytes :+ byteBits.lsb.bytesIterator.toSeq.head)
       } else {
         bytes
       }
@@ -25,6 +25,6 @@ class BitStringDecoder(packingOrderFirst: BitSignificance) {
     Option.when(buffer.length > 0) {
       assert(buffer.length < java.lang.Byte.SIZE)
       val byteBits = buffer.end(packingOrderFirst).otherEnd.padTo(java.lang.Byte.SIZE)
-      byteBits.lsb.bytes.toSeq.head
+      byteBits.lsb.bytesIterator.toSeq.head
     }
 }

@@ -21,7 +21,7 @@ class BitStringEncoder(packingOrderFirst: BitSignificance) {
       stagingBits = stagingBits.end(packingOrderFirst).otherEnd.extend(BitString.from(byte))
     }
 
-    val (newStagingBits, bits) = stagingBits.end(packingOrderFirst).splitAt(n)
+    val (bits, newStagingBits) = stagingBits.end(packingOrderFirst).splitAt(n)
 
     stagingBits = newStagingBits
     totalBits -= bits.length

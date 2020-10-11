@@ -100,7 +100,7 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
   }
 
   private def toCode(bitString: BitString): Code = {
-    val bytes = bitString.lsb.bytes
+    val bytes = bitString.lsb.bytesIterator
       .padTo(java.lang.Integer.BYTES, 0.toByte)
       .toArray
 

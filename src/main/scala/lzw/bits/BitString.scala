@@ -1,216 +1,361 @@
 package lzw.bits
 
 import java.util
+import lzw.bits.BitString.{WordSize, WordType}
 import scala.annotation.tailrec
 
-class BitString private(private val units: Array[BitString.UnitType], len: Int) { self =>
-  import BitString._
+sealed trait BitString { self =>
+  def length: Int
+  def apply(i: Int): Boolean
 
-  require(requiredUnitsForLength(len) == units.length)
-  require(
-    units.lastOption
-      .map { bits =>
-        val usedLength = len % UnitSize
-        usedLength == 0 || (bits >>> usedLength) == 0
-      }
-      .forall(identity)
-  )
+  @inline final def ++(lsb: BitString): BitString = concat(lsb)
 
-  @inline def length: Int = len
-
-  def apply(i: Int): Boolean = {
-    require(i >= 0)
-    require(i < length)
-    val unitIndex = i / UnitSize
-    val bitIndex = i % UnitSize
-    val bit = (units(unitIndex) >> bitIndex) & 0x1
-    bit != 0
-  }
-
-  def ++(lsb: BitString): BitString =
-    if (this.length == 0) lsb
-    else if (lsb.length == 0) this
-    else {
-      val len = this.length + lsb.length
-      val units = new Array[UnitType](requiredUnitsForLength(len))
-      copyBits(lsb.units, 0, units, 0, lsb.length)
-      copyBits(this.units, 0, units, lsb.length, this.length)
-      new BitString(units, len)
-    }
-
-  def slice(from: Int, until: Int): BitString = {
-    require(from >= 0)
-    require(until >= from)
-    val effectiveFrom = math.min(from, length)
-    val effectiveUntil = math.min(until, length)
-    val len = effectiveUntil - effectiveFrom
-    if (len == 0) {
-      BitString.empty
-    } else {
-      val units = new Array[UnitType](requiredUnitsForLength(len))
-      copyBits(this.units, effectiveFrom, units, 0, len)
-      new BitString(units, len)
-    }
-  }
-
-  val lsb: End = new End {
-    override val significance: BitSignificance = BitSignificance.LSB
-
-    override def bytes: Iterator[Byte] = {
-      val byteCount = requiredUnitsForLength(length, java.lang.Byte.SIZE)
-      val bytesPerUnit = UnitSize / java.lang.Byte.SIZE
-      units.iterator
-        .flatMap { unit =>
-          Iterator.iterate(unit)(_ >>> java.lang.Byte.SIZE)
-            .take(bytesPerUnit)
-        }
-        .take(byteCount)
-        .map(_.toByte)
-    }
-
-    override def drop(n: UnitType): BitString =
-      slice(n, length)
-
-    override def extend(bits: BitString): BitString =
-      self ++ bits
-
-    override def take(n: Int): BitString =
-      slice(0, n)
-
-    override def otherEnd: End = msb
-  }
-
-  val msb: End = new End {
-    override val significance: BitSignificance = BitSignificance.MSB
-
-    override def bytes: Iterator[Byte] = {
-      val byteCount = requiredUnitsForLength(length, java.lang.Byte.SIZE)
-      val bytesPerUnit = UnitSize / java.lang.Byte.SIZE
-      val extendedBS = self.lsb.padTo(self.units.length * UnitSize)
-      extendedBS.units.reverseIterator
-        .flatMap { unit =>
-          Iterator.iterate(unit)(_ >>> java.lang.Byte.SIZE)
-            .take(bytesPerUnit)
-            .toSeq
-            .reverse
-        }
-        .take(byteCount)
-        .map(_.toByte)
-    }
-
-    override def drop(n: UnitType): BitString =
-      slice(0, length - n)
-
-    override def extend(bits: BitString): BitString =
-      bits ++ self
-
-    override def take(n: Int): BitString =
-      slice(length - n, length)
-
-    override def otherEnd: End = lsb
-  }
-
-  val end: Map[BitSignificance, End] = Map(BitSignificance.LSB -> lsb, BitSignificance.MSB -> msb)
+  def concat(lsb: BitString): BitString
 
   sealed trait End {
     val significance: BitSignificance
-    def bytes: Iterator[Byte]
-    def drop(n: Int): BitString
+
+    def otherEnd: End
+    def bytesIterator: Iterator[Byte]
+
     def extend(bits: BitString): BitString
 
-    final def padTo(len: UnitType, elem: Boolean = false): BitString = {
-      require(len >= 0)
-      val paddingLength = len - self.length
-      val unit: UnitType = if (elem) 1 else 0
-      val units = Array.fill[UnitType](requiredUnitsForLength(paddingLength))(unit)
-      val bits = new BitString(units, paddingLength)
-      extend(bits)
-    }
+    final def padTo(len: Int, elem: Boolean = false): BitString = {
+      val paddingLen = len - length
 
-    final def splitAt(n: Int): (BitString, BitString) = {
-      require(n >= 0)
-      if (n == 0) (self, BitString.empty)
-      else if (n >= length) (BitString.empty, self)
-      else (drop(n), take(n))
+      val padding =
+        if (paddingLen <= 0) {
+          EmptyBitString
+        } else if (paddingLen <= WordSize) {
+          val newWord = if (elem) BitUtils.lsbMask(paddingLen) else 0
+          new WordBitString(newWord, paddingLen)
+        } else {
+          val newWords = new Array[WordType](BitString.requiredPiecesForLength(paddingLen, WordSize))
+          if (elem) {
+            val lastWordIndex = newWords.length - 1
+            for (i <- 0 until lastWordIndex) {
+              newWords(i) = ~0
+            }
+            newWords(lastWordIndex) = BitUtils.lsbMask(paddingLen % WordSize)
+          }
+          new WordArrayBitString(newWords, paddingLen)
+        }
+
+      extend(padding)
     }
 
     def take(n: Int): BitString
+    def drop(n: Int): BitString
 
-    def otherEnd: End
+    final def splitAt(i: Int): (BitString, BitString) = (take(i), drop(i))
   }
 
-  private def copyBits(fromUnits: Array[UnitType], fromBitIndex: Int, toUnits: Array[UnitType], toBitIndex: Int, count: Int): Unit = {
+  sealed trait LsbEnd extends End {
+    final val significance = BitSignificance.LSB
+    override final def otherEnd: End = msb
+    override final def extend(bits: BitString): BitString = self ++ bits
+  }
+
+  sealed trait MsbEnd extends End {
+    final val significance = BitSignificance.MSB
+    override final def otherEnd: End = lsb
+    override final def extend(bits: BitString): BitString = bits ++ self
+    override final def take(n: Int): BitString = lsb.drop(length - n)
+    override final def drop(n: Int): BitString = lsb.take(length - n)
+  }
+
+  def lsb: LsbEnd
+  def msb: MsbEnd
+
+  final def end(significance: BitSignificance): End =
+    significance match {
+      case BitSignificance.LSB => lsb
+      case BitSignificance.MSB => msb
+    }
+
+  override final def toString: String =
+    iterator
+      .map(bitToChar)
+      .mkString
+      .reverse
+
+  final def toString(groupLen: Int): String =
+    iterator.grouped(groupLen)
+      .map(
+        _.map(bitToChar)
+          .padTo(groupLen, false)
+          .mkString
+      )
+      .mkString(" ")
+      .reverse
+
+  private def iterator: Iterator[Boolean] =
+    Iterator.range(0, length).map(apply)
+
+  private def bitToChar(bit: Boolean): Char =
+    if (bit) '1' else '0'
+}
+
+object BitString {
+  @inline private[bits] final val WordSize = java.lang.Integer.SIZE
+  @inline private[bits] final type WordType = Int
+
+  val empty: BitString = EmptyBitString
+
+  def from(byte: Byte): BitString = new WordBitString(byte & 0x000000FF, java.lang.Byte.SIZE)
+  def from(short: Short): BitString = new WordBitString(short & 0x0000FFFF, java.lang.Short.SIZE)
+  def from(int: Int): BitString = new WordBitString(int, java.lang.Integer.SIZE)
+  def from(long: Long): BitString = new WordArrayBitString(Array(long, long >>> WordSize).map(_.toInt), java.lang.Long.SIZE)
+
+  def parse(string: String): BitString = {
+    def parseWord(string: String): WordType =
+      string.foldLeft(0) { (word, char) =>
+        require(char == '0' || char == '1')
+        val bit = char - '0'
+        (word << 1) | bit
+      }
+
+    if (string.isEmpty) {
+      EmptyBitString
+    } else if (string.sizeIs <= WordSize) {
+      val word = parseWord(string)
+      new WordBitString(word, string.length)
+    } else {
+      val words = string.reverse
+        .grouped(WordSize)
+        .map(str => parseWord(str.reverse))
+        .toArray
+      new WordArrayBitString(words, string.length)
+    }
+  }
+
+  private[bits] def requiredPiecesForLength(bitCount: Int, pieceSize: Int): Int =
+    (bitCount + (pieceSize - 1)) / pieceSize
+
+  private[bits] def bitAt(word: WordType, i: Int): Boolean =
+    ((word >> i) & 0x01) == 1
+}
+
+private object EmptyBitString extends BitString {
+  override def length: Int = 0
+  override def apply(i: Int): Boolean = throw new IndexOutOfBoundsException(i.toString)
+
+  override def concat(lsb: BitString): BitString = lsb
+
+  override lazy val lsb: LsbEnd = new LsbEnd {
+    override def bytesIterator: Iterator[Byte] = Iterator.empty
+    override final def take(n: Int): BitString = EmptyBitString
+    override final def drop(n: Int): BitString = EmptyBitString
+  }
+
+  override lazy val msb: MsbEnd = new MsbEnd {
+    override def bytesIterator: Iterator[Byte] = Iterator.empty
+  }
+}
+
+private class WordBitString(
+  private[bits] val word: WordType,
+  private[bits] val len: Int,
+) extends BitString { self =>
+//  require(len > 0)
+//  require(len <= java.lang.Integer.SIZE)
+//  require(len == java.lang.Integer.SIZE || (word >>> len) == 0, (word, len, this.toString))
+
+  @inline override def length: Int = len
+
+  override def apply(i: Int): Boolean =
+    BitString.bitAt(word, i)
+
+  override def concat(lsb: BitString): BitString =
+    lsb match {
+      case EmptyBitString => self
+      case that: WordBitString if this.len + that.len <= WordSize =>
+        val newWord = (this.word << that.len) | that.word
+        new WordBitString(newWord, this.len + that.len)
+      case that: WordBitString => WordArrayBitString.concat(Array(this.word), this.len, Array(that.word), that.len)
+      case that: WordArrayBitString => WordArrayBitString.concat(Array(this.word), this.len, that.words, that.len)
+    }
+
+  override lazy val lsb: LsbEnd = new LsbEnd {
+    override final def bytesIterator: Iterator[Byte] =
+      Iterator.iterate(word)(_ >>> java.lang.Byte.SIZE)
+        .map(_.toByte)
+        .take(BitString.requiredPiecesForLength(len, java.lang.Byte.SIZE))
+
+    override def take(n: Int): BitString =
+      if (n <= 0) {
+        EmptyBitString
+      } else if (n < len) {
+        val newWord = word & BitUtils.lsbMask(n)
+        new WordBitString(newWord, n)
+      } else {
+        self
+      }
+
+    override def drop(n: Int): BitString =
+      if (n <= 0) {
+        self
+      } else if (n < len) {
+        val newWord = word >>> n
+        new WordBitString(newWord, len - n)
+      } else {
+        EmptyBitString
+      }
+  }
+
+  override lazy val msb: MsbEnd = new MsbEnd {
+    override def bytesIterator: Iterator[Byte] =
+      Iterator.iterate(len)(_ - java.lang.Byte.SIZE)
+        .map { bitsRemaining =>
+          val offset = bitsRemaining - java.lang.Byte.SIZE
+          val value = if (offset >= 0) {
+            word >>> offset
+          } else {
+            word << (java.lang.Byte.SIZE - bitsRemaining)
+          }
+          value.toByte
+        }
+        .take(BitString.requiredPiecesForLength(len, java.lang.Byte.SIZE))
+  }
+
+  override def equals(o: Any): Boolean =
+    o match {
+      case that: WordBitString => this.word == that.word && this.len == that.len
+      case _ => false
+    }
+
+  override def hashCode(): Int =
+    word * 31 + len
+}
+
+private class WordArrayBitString(
+  private[bits] val words: Array[WordType],
+  private[bits] val len: Int,
+) extends BitString { self =>
+//  require(len > java.lang.Integer.SIZE)
+//  require(words.length == BitString.requiredPiecesForLength(len, WordSize))
+//  require(len % java.lang.Integer.SIZE == 0 || (words.last >>> (len % java.lang.Integer.SIZE)) == 0)
+
+  @inline override def length: Int = len
+
+  override def apply(i: Int): Boolean = {
+    val wordIndex = i / WordSize
+    val bitIndex = i % WordSize
+    BitString.bitAt(words(wordIndex), bitIndex)
+  }
+
+  override def concat(lsb: BitString): BitString =
+    lsb match {
+      case EmptyBitString => self
+      case that: WordBitString => WordArrayBitString.concat(this.words, this.len, Array(that.word), that.len)
+      case that: WordArrayBitString => WordArrayBitString.concat(this.words, this.len, that.words, that.len)
+    }
+
+  override lazy val lsb: LsbEnd = new LsbEnd {
+    override def bytesIterator: Iterator[Byte] =
+      Iterator.iterate(0)(_ + java.lang.Byte.SIZE)
+        .map { bitIndex =>
+          val wordIndex = bitIndex / WordSize
+          val bitOffset = bitIndex % WordSize
+          (words(wordIndex) >>> bitOffset).toByte
+        }
+        .take(BitString.requiredPiecesForLength(len, java.lang.Byte.SIZE))
+
+    override def take(n: Int): BitString = slice(0, n)
+    override def drop(n: Int): BitString = slice(n, len)
+  }
+
+  override lazy val msb: MsbEnd = new MsbEnd {
+    override def bytesIterator: Iterator[Byte] =
+      Iterator.iterate(len)(_ - java.lang.Byte.SIZE)
+        .map { bitsRemaining =>
+          val offset = bitsRemaining - java.lang.Byte.SIZE
+          val value = if (offset >= 0) {
+            val wordIndex = offset / WordSize
+            val bitOffset = offset % WordSize
+
+            val lowBitsCount = bitOffset
+            val highBitsCount = WordSize - bitOffset
+
+            val low = words(wordIndex) >>> lowBitsCount
+            val high = if (highBitsCount < java.lang.Byte.SIZE) {
+              words(wordIndex + 1) << highBitsCount
+            } else {
+              0
+            }
+
+            low | high
+          } else {
+            words(0) << (java.lang.Byte.SIZE - bitsRemaining)
+          }
+          value.toByte
+        }
+        .take(BitString.requiredPiecesForLength(len, java.lang.Byte.SIZE))
+  }
+
+  private def slice(from: Int, until: Int): BitString = {
+    def inRange(i: Int) =
+      if (i < 0) 0
+      else if (i > len) len
+      else i
+
+    val effectiveFrom = inRange(from)
+    val effectiveUntil = inRange(until)
+    val effectiveLen = effectiveUntil - effectiveFrom
+
+    if (effectiveLen == 0) {
+      EmptyBitString
+    } else if (effectiveLen <= WordSize) {
+      val newWords = Array[WordType](0)
+      WordArrayBitString.copyBits(words, effectiveFrom, newWords, 0, effectiveLen)
+      new WordBitString(newWords(0), effectiveLen)
+    } else if (effectiveLen == len) {
+      self
+    } else {
+      val newWords = new Array[WordType](BitString.requiredPiecesForLength(effectiveLen, WordSize))
+      WordArrayBitString.copyBits(words, effectiveFrom, newWords, 0, effectiveLen)
+      new WordArrayBitString(newWords, effectiveLen)
+    }
+  }
+
+  override def equals(o: Any): Boolean =
+    o match {
+      case that: WordArrayBitString =>
+        (this.words `sameElements` that.words) && this.len == that.len
+      case _ => false
+    }
+
+  override def hashCode(): Int =
+    util.Arrays.hashCode(words) * 31 + len
+}
+
+private object WordArrayBitString {
+  private[bits] def concat(msbWords: Array[WordType], msbLen: Int, lsbWords: Array[WordType], lsbLen: Int): WordArrayBitString = {
+    val newLen = msbLen + lsbLen
+    val newWords = new Array[WordType](BitString.requiredPiecesForLength(newLen, WordSize))
+    copyBits(lsbWords, 0, newWords, 0, lsbLen)
+    copyBits(msbWords, 0, newWords, lsbLen, msbLen)
+    new WordArrayBitString(newWords, newLen)
+  }
+
+  private def copyBits(fromWords: Array[WordType], fromBitIndex: Int, toWords: Array[WordType], toBitIndex: Int, count: Int): Unit = {
     @tailrec
     def loop(fromBitIndex: Int, toBitIndex: Int, count: Int): Unit =
       if (count > 0) {
-        val fromUnitIndex = fromBitIndex / UnitSize
-        val fromBitOffset = fromBitIndex % UnitSize
+        val fromWordIndex = fromBitIndex / WordSize
+        val fromBitOffset = fromBitIndex % WordSize
 
-        val toUnitIndex = toBitIndex / UnitSize
-        val toBitOffset = toBitIndex % UnitSize
+        val toWordIndex = toBitIndex / WordSize
+        val toBitOffset = toBitIndex % WordSize
 
-        val copyLen = Seq(count, UnitSize - fromBitOffset, UnitSize - toBitOffset).min
+        val copyLen = Seq(count, WordSize - fromBitOffset, WordSize - toBitOffset).min
 
-        val bits = (fromUnits(fromUnitIndex) >>> fromBitOffset) & BitUtils.lsbMask(copyLen)
-        toUnits(toUnitIndex) |= bits << toBitOffset
+        val bits = (fromWords(fromWordIndex) >>> fromBitOffset) & BitUtils.lsbMask(copyLen)
+        toWords(toWordIndex) |= bits << toBitOffset
 
         loop(fromBitIndex + copyLen, toBitIndex + copyLen, count - copyLen)
       }
 
     loop(fromBitIndex, toBitIndex, count)
   }
-
-  override def equals(other: Any): Boolean =
-    other match {
-      case that: BitString => this.length == that.length && this.units.sameElements(that.units)
-      case _ => false
-    }
-
-  override def hashCode(): Int =
-    len.hashCode() * 31 + util.Arrays.hashCode(units)
-
-  override def toString: String =
-    (0 until length)
-      .map(i => if (this(i)) '1' else '0')
-      .mkString
-      .reverse
-
-  def toString(groupSize: Int): String =
-    Iterator.range(0, length, groupSize)
-      .map { n =>
-        slice(n, n + groupSize)
-          .msb.padTo(groupSize)
-      }
-      .toSeq
-      .reverse
-      .mkString(" ")
-}
-
-object BitString {
-  private type UnitType = Int
-  @inline private final val UnitSize = java.lang.Integer.SIZE
-
-  val empty: BitString = new BitString(Array.empty, 0)
-
-  def from(byte: Byte): BitString = new BitString(Array(byte & 0x000000FF), java.lang.Byte.SIZE)
-  def from(short: Short): BitString = new BitString(Array(short & 0x0000FFFF), java.lang.Short.SIZE)
-  def from(int: Int): BitString = new BitString(Array(int), java.lang.Integer.SIZE)
-  def from(long: Long): BitString = new BitString(Array(long, long >>> java.lang.Integer.SIZE).map(_.toInt), java.lang.Long.SIZE)
-
-  def parse(str: String): BitString = {
-    val units = str.reverse
-      .grouped(UnitSize)
-      .map { str =>
-        str.reverse.foldLeft(0) { (int, char) =>
-          require(char == '0' || char == '1')
-          val bit = char - '0'
-          (int << 1) | bit
-        }
-      }
-      .toArray
-    new BitString(units, str.length)
-  }
-
-  private def requiredUnitsForLength(bitCount: Int, unitSize: Int = UnitSize): Int =
-    (bitCount + (unitSize - 1)) / unitSize
 }
