@@ -20,11 +20,9 @@ object VaryingOptionsRunner {
     val contentByResets = getContentByResets
     val cases = casesIterator.toArray
 
-    val progress = new ProgressDisplay(taskRunner.processedTasksCount)
+    val progress = new ProgressDisplay(taskRunner.processedTasksCount, None, Some(cases.length))
     try {
       for (((options, resets), index) <- cases.zipWithIndex) {
-        progress.prefix = s"$index->${cases.length}"
-
         taskRunner.submit {
           withCase(index, options, "resets" -> resets) {
             processCase(options, resets, contentByResets)

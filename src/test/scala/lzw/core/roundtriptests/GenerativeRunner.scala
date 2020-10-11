@@ -14,11 +14,12 @@ object GenerativeRunner {
     val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
     val taskRunner = new TaskRunner(threadCount)
 
-    val progress = new ProgressDisplay(taskRunner.processedTasksCount)
+    var progressPrefix: String = ""
+    val progress = new ProgressDisplay(taskRunner.processedTasksCount, Some(() => progressPrefix), None)
     try {
       for (((options, inputSymbolsParts), index) <- casesIterator.zipWithIndex) {
         val inputSize = inputSymbolsParts.view.map(_.size).sum
-        progress.prefix = s"$inputSize->${InputSizes.last} ${options.alphabet.size}->${alphabetSizes(inputSize).last}"
+        progressPrefix = s"$inputSize->${InputSizes.last} ${options.alphabet.size}->${alphabetSizes(inputSize).last}"
 
         taskRunner.submit {
           withCase(index, options, "inputSymbolsParts" -> inputSymbolsParts) {
