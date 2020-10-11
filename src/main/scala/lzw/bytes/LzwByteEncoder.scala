@@ -13,6 +13,11 @@ class LzwByteEncoder(options: Options) {
       .toArray
       .flatMap(bitsDecoder.decode)
 
+  def reset(): Array[Byte] =
+    lzwEncoder.reset()
+      .toArray
+      .flatMap(bitsDecoder.decode)
+
   def finish(): Array[Byte] = {
     val remainingBytes = lzwEncoder.finish()
       .toArray

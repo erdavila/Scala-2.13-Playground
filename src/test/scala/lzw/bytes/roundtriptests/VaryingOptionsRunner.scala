@@ -48,8 +48,8 @@ object VaryingOptionsRunner {
     val encoder = new LzwByteEncoder(options)
     val unfinishedEncodedBytes = decodedBytesParts.zipWithIndex
       .map { case (bytes, i) =>
-        /*val flushedEncodedBytes = if (i > 0) encoder.reset() else Seq.empty
-        flushedEncodedBytes ++ */encoder.encode(bytes) // !!
+        val flushedEncodedBytes = if (i > 0) encoder.reset() else Array.empty
+        flushedEncodedBytes ++ encoder.encode(bytes)
       }
       .reduce(_ ++ _)
     val encodedBytes = unfinishedEncodedBytes ++ encoder.finish()
@@ -64,14 +64,14 @@ object VaryingOptionsRunner {
     for {
       options <- optionsIterator
       resets <- {
-        val resetsAmounts = MaxResets//options.clearCode.fold(1)(_ => MaxResets) !!
-        (0 to resetsAmounts).iterator.take(1) // !!
+        val resetsAmounts = options.clearCode.fold(0)(_ => MaxResets)
+        (0 to resetsAmounts).iterator
       }
     } yield (options, resets)
 
   private def optionsIterator: Iterator[Options] =
     for {
-      (clearCode, stopCode) <- specialCodesIterator(BytesAlphabetSize).take(1) // !!
+      (clearCode, stopCode) <- specialCodesIterator(BytesAlphabetSize).map(x => (x._1, None)).distinct  // !!
       variableWidth <- Iterator(false, true)
       earlyChange <- Iterator(false, true)
       initialWidth <- {
@@ -94,7 +94,7 @@ object VaryingOptionsRunner {
           earlyChange = earlyChange
         ),
         maxDictionarySize = maxDictSize,
-//        clearCode = clearCode, !!
+        clearCode = clearCode,
 //        stopCode = stopCode !!
         packingOrder = packingOrder
       )
