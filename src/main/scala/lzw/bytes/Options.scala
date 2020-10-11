@@ -9,6 +9,7 @@ case class Options(
   codeWidth: CodeWidthOptions,
   maxDictionarySize: Option[Int] = None,
   clearCode: Option[Code] = None,
+  stopCode: Option[Code] = None,
   packingOrder: BitSignificance = BitSignificance.LSB
 ) {
   private[bytes] def toCoreOptions: core.Options[Byte] =
@@ -17,6 +18,7 @@ case class Options(
       codeWidth = codeWidth,
       maxDictionarySize = maxDictionarySize,
       clearCode = clearCode,
+      stopCode = stopCode,
     )
 }
 

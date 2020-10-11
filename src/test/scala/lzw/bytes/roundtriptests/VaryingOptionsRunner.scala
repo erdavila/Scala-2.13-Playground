@@ -69,7 +69,7 @@ object VaryingOptionsRunner {
 
   private def optionsIterator: Iterator[Options] =
     for {
-      (clearCode, stopCode) <- specialCodesIterator(BytesAlphabetSize).map(x => (x._1, None)).distinct  // !!
+      (clearCode, stopCode) <- specialCodesIterator(BytesAlphabetSize)
       variableWidth <- Iterator(false, true)
       earlyChange <- Iterator(false, true)
       initialWidth <- {
@@ -93,7 +93,7 @@ object VaryingOptionsRunner {
         ),
         maxDictionarySize = maxDictSize,
         clearCode = clearCode,
-//        stopCode = stopCode !!
+        stopCode = stopCode,
         packingOrder = packingOrder
       )
     } yield options
