@@ -9,7 +9,16 @@ class LzwByteDecoder(options: Options) {
   private val bitsEncoder = new BitStringEncoder(options.packingOrder)
   private val lzwDecoder = new LzwDecoder(options.toCoreOptions)
 
+  private object stats {
+    var encodedBytesCount: Int = 0
+
+    def countEncodedBytes(bytes: Array[Byte]): Unit =
+      encodedBytesCount += bytes.length
+  }
+
   def decode(bytes: Array[Byte]): Array[Byte] = {
+    stats.countEncodedBytes(bytes)
+
     bitsEncoder.putBytes(bytes)
 
     val arrayBuffer = ArrayBuffer.empty[Byte]
@@ -21,4 +30,15 @@ class LzwByteDecoder(options: Options) {
 
     arrayBuffer.toArray
   }
+
+  def statistics: Statistics = {
+    val s = lzwDecoder.statistics
+    Statistics(
+      decodedBytes = s.outputSymbols,
+      encodedBytes = stats.encodedBytesCount,
+      dictionarySize = s.dictionarySize,
+    )
+  }
+
+  def stopped: Boolean = lzwDecoder.stopped
 }
