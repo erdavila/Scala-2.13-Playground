@@ -13,6 +13,11 @@ object VaryingOptionsRunner {
 
   private val MaxResets = 2
 
+  private val bestCases = {
+    implicit val ordering: Ordering[(Int, Options, Int)] = Ordering.by(_._1)
+    new MultiThreadBestValues(50)(ordering)
+  }
+
   def main(args: Array[String]): Unit = {
     val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
     val taskRunner = new TaskRunner(threadCount)
@@ -37,6 +42,15 @@ object VaryingOptionsRunner {
       println(finalStatus)
       println(s"Enqueue wait time (ns): ${taskRunner.enqueueWaitTime}")
       println(s"Dequeue wait time (ns): ${taskRunner.dequeueWaitTime}")
+
+      println()
+      println("Best compression cases (reduction; options; resets):")
+      val originalSize = contentByResets(0)(0).length
+      for ((encodedSize, options, resets) <- bestCases.get()) {
+        val sizeReduction = originalSize - encodedSize
+        val reductionPercent = 100.0 * sizeReduction / originalSize
+        println(s"  $reductionPercent%; $options; $resets")
+      }
     }
   }
 
@@ -56,6 +70,8 @@ object VaryingOptionsRunner {
     val decodedBytes = decoder.decode(encodedBytes)
     val expectedDecodedBytes = decodedBytesByResets(0)(0)
     assert(decodedBytes `sameElements` expectedDecodedBytes)
+
+    bestCases.consider((encodedBytes.length, options, resets))
   }
 
   private def casesIterator: Iterator[(Options, Int)] =
