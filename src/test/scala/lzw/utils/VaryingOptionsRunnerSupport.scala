@@ -1,28 +1,20 @@
-package lzw.bytes.roundtriptests
+package lzw.utils
 
 import java.util.zip.ZipInputStream
 import lzw.bits.BitSignificance
 import lzw.bytes.Options.BytesAlphabetSize
-import lzw.bytes.{CodeWidthOptions, LzwByteDecoder, LzwByteEncoder, Options}
+import lzw.bytes.{CodeWidthOptions, Options}
 import lzw.utils.IterativeCasesUtils.{specialCodesIterator, split, withCase}
-import lzw.utils.{ProgressDisplay, TaskRunner}
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-object VaryingOptionsRunner {
-
+object VaryingOptionsRunnerSupport {
   private val MaxResets = 2
 
-  private val bestCases = {
-    implicit val ordering: Ordering[(Int, Options, Int)] = Ordering.by(_._1)
-    new MultiThreadBestValues(50)(ordering)
-  }
-
-  def main(args: Array[String]): Unit = {
+  def run(processCase: (Options, Int) => Unit): Unit = {
     val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
     val taskRunner = new TaskRunner(threadCount)
 
-    val contentByResets = getContentByResets
     val cases = casesIterator.toArray
 
     val progress = new ProgressDisplay(taskRunner.processedTasksCount, None, Some(cases.length))
@@ -30,7 +22,7 @@ object VaryingOptionsRunner {
       for (((options, resets), index) <- cases.zipWithIndex) {
         taskRunner.submit {
           withCase(index, options, "resets" -> resets) {
-            processCase(options, resets, contentByResets)
+            processCase(options, resets)
           }
         }
       }
@@ -42,36 +34,7 @@ object VaryingOptionsRunner {
       println(finalStatus)
       println(s"Enqueue wait time (ns): ${taskRunner.enqueueWaitTime}")
       println(s"Dequeue wait time (ns): ${taskRunner.dequeueWaitTime}")
-
-      println()
-      println("Best compression cases (reduction; options; resets):")
-      val originalSize = contentByResets(0)(0).length
-      for ((encodedSize, options, resets) <- bestCases.get()) {
-        val sizeReduction = originalSize - encodedSize
-        val reductionPercent = 100.0 * sizeReduction / originalSize
-        println(s"  $reductionPercent%; $options; $resets")
-      }
     }
-  }
-
-  private def processCase(options: Options, resets: Int, decodedBytesByResets: Array[Array[Array[Byte]]]): Unit = {
-    val decodedBytesParts = decodedBytesByResets(resets)
-
-    val encoder = new LzwByteEncoder(options)
-    val unfinishedEncodedBytes = decodedBytesParts.zipWithIndex
-      .map { case (bytes, i) =>
-        val flushedEncodedBytes = if (i > 0) encoder.reset() else Array.empty
-        flushedEncodedBytes ++ encoder.encode(bytes)
-      }
-      .reduce(_ ++ _)
-    val encodedBytes = unfinishedEncodedBytes ++ encoder.finish()
-
-    val decoder = new LzwByteDecoder(options)
-    val decodedBytes = decoder.decode(encodedBytes)
-    val expectedDecodedBytes = decodedBytesByResets(0)(0)
-    assert(decodedBytes `sameElements` expectedDecodedBytes)
-
-    bestCases.consider((encodedBytes.length, options, resets))
   }
 
   private def casesIterator: Iterator[(Options, Int)] =
@@ -114,13 +77,12 @@ object VaryingOptionsRunner {
       )
     } yield options
 
-  private def getContentByResets: Array[Array[Array[Byte]]] = {
-    val content = loadContent()
+  lazy val decodedContentByResets: Array[Array[Array[Byte]]] = {
     for (resets <- 0 to MaxResets)
-      yield split(content.toVector, resets + 1)
+      yield split(decodedContent.toVector, resets + 1)
   }.map(_.map(_.toArray).toArray).toArray
 
-  private def loadContent(): Array[Byte] = {
+  lazy val decodedContent: Array[Byte] = {
     val zipStream = new ZipInputStream(getClass.getResourceAsStream("/shakespeares-works_TXT_FolgerShakespeare.zip"))
     try {
       val Filename = "hamlet_TXT_FolgerShakespeare.txt"

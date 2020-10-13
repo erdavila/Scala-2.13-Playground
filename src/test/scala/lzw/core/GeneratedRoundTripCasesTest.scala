@@ -1,10 +1,9 @@
-package lzw.core.roundtriptests
+package lzw.core
 
 import lzw.bits.BitString
-import lzw.core.{CodeWidthOptions, LzwDecoder, LzwEncoder, Options}
 import org.scalatest.funspec.AnyFunSpec
 
-class GeneratedCasesTest extends AnyFunSpec {
+class GeneratedRoundTripCasesTest extends AnyFunSpec {
   it should behave like
     theCase(
       "finish()ing when width should increase",

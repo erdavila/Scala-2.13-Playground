@@ -1,11 +1,11 @@
-package lzw.core.roundtriptests
+package lzw.core
 
-import lzw.core._
 import lzw.utils.IterativeCasesUtils.{specialCodesIterator, split, withCase}
 import lzw.utils.{ProgressDisplay, TaskRunner}
 import scala.annotation.tailrec
 
-object GenerativeRunner {
+object GeneratedRoundTripTestsRunner {
+  private type Sym = Int
 
   private val InputSizes = 0 until 15
   private def alphabetSizes(inputSize: Int): Range = 1 until (inputSize + 4)

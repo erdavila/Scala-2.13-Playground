@@ -1,4 +1,4 @@
-package lzw.bytes.roundtriptests
+package lzw.bytes
 
 import scala.collection.mutable
 import scala.util.Random
