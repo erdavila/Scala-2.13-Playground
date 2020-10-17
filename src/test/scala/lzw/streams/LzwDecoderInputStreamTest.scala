@@ -1,17 +1,10 @@
 package lzw.streams
 
 import java.io.ByteArrayInputStream
-import lzw.bytes.LzwByteEncoder
 import org.scalatest.funsuite.AnyFunSuite
 import scala.collection.mutable
 
-class LzwDecoderInputStreamTest extends AnyFunSuite with InputStreamTestsCommon {
-
-  private val encodedContent = {
-    val encoder = new LzwByteEncoder(options)
-    val unfinishedBytes = encoder.encode(decodedBytesInput)
-    unfinishedBytes ++ encoder.finish()
-  }
+class LzwDecoderInputStreamTest extends AnyFunSuite with InputStreamTestsCommon with DecoderStreamTestsCommon {
 
   for ((name, getConsumeFunction) <- ReadMethodOverridesCases) {
     testsFor(decoding(name)(getConsumeFunction))
