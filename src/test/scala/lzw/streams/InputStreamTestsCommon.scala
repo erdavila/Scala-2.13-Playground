@@ -1,25 +1,8 @@
 package lzw.streams
 
 import java.io.InputStream
-import lzw.bytes.{CodeWidthOptions, Options}
 
-trait InputStreamTestsCommon {
-  protected val options: Options = Options(
-    codeWidth = CodeWidthOptions(
-      initialWidth = 9,
-      maximumWidth = None,
-    ),
-  )
-
-  protected val decodedBytesInput: Array[Byte] = {
-    val X = 'X'.toByte
-    val o = 'o'.toByte
-    Iterator.iterate(X) {
-      case `X` => o
-      case `o` => X
-    }.take(19).toArray
-  }
-
+trait InputStreamTestsCommon extends StreamTestsCommon {
   protected type GetConsumeFunction = (InputStream, Array[Byte] => Any) => () => Boolean
 
   protected val ReadMethodOverridesCases: Seq[(String, GetConsumeFunction)] = Seq(
