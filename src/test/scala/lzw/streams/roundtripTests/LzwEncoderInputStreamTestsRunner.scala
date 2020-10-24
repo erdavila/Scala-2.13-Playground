@@ -1,12 +1,13 @@
-package lzw.streams
+package lzw.streams.roundtripTests
 
 import java.io.ByteArrayInputStream
 import lzw.bytes.{LzwByteDecoder, Options}
+import lzw.streams.{LzwEncoderInputStream, ReadMethodOverrides}
 import lzw.utils.VaryingOptionsRunnerSupport
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-object LzwEncoderInputStreamRoundTripTestsRunner {
+object LzwEncoderInputStreamTestsRunner {
 
   def main(args: Array[String]): Unit =
     VaryingOptionsRunnerSupport.run(processCase)

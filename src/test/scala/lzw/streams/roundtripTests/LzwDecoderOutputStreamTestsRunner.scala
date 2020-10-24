@@ -1,12 +1,13 @@
-package lzw.streams
+package lzw.streams.roundtripTests
 
-import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import lzw.bytes.{LzwByteEncoder, Options}
+import lzw.streams.{LzwDecoderOutputStream, WriteMethodOverrides}
 import lzw.utils.VaryingOptionsRunnerSupport
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-object LzwDecoderInputStreamRoundTripTestsRunner {
+object LzwDecoderOutputStreamTestsRunner {
 
   def main(args: Array[String]): Unit =
     VaryingOptionsRunnerSupport.run(processCase)
@@ -25,23 +26,22 @@ object LzwDecoderInputStreamRoundTripTestsRunner {
       encodedBytesBuffer.toArray
     }
 
-    val encodedBytesInputStream = new ByteArrayInputStream(encodedBytes)
-    val decoderInputStream = new LzwDecoderInputStream(encodedBytesInputStream, options)
+    val contentOutputStream = new ByteArrayOutputStream()
+    val decoderOutputStream = new LzwDecoderOutputStream(contentOutputStream, options)
 
     val parts = resets + 1
-    val Gap = 2
-    val readBufferSize = 2 * Gap + 1 + VaryingOptionsRunnerSupport.decodedContent.length / (3 * (parts + 1))
-    val decodedBytesBuffer = mutable.Buffer.empty[Byte]
-    val readMethodOverrides = new ReadMethodOverrides(decoderInputStream, readBufferSize, bytes => decodedBytesBuffer.appendAll(bytes))
+    val writeBufferSize = 1 + VaryingOptionsRunnerSupport.decodedContent.length / (3 * (parts + 1))
+    val writeMethodOverrides = new WriteMethodOverrides(decoderOutputStream, writeBufferSize, encodedBytes)
 
     @tailrec
-    def loop(readMethodOverride: readMethodOverrides.Override = readMethodOverrides.singleByte): Unit =
-      if (readMethodOverride.execute()) {
-        loop(readMethodOverride.next)
+    def loop(writeMethodOverride: writeMethodOverrides.Override = writeMethodOverrides.singleByte): Unit = {
+      if (writeMethodOverride.execute()) {
+        loop(writeMethodOverride.next)
       }
+    }
 
     loop()
-    val decodedBytes = decodedBytesBuffer.toArray
+    val decodedBytes = contentOutputStream.toByteArray
 
     val expectedDecodedBytes = VaryingOptionsRunnerSupport.decodedContent
     assert(decodedBytes `sameElements` expectedDecodedBytes, (decodedBytes.length, expectedDecodedBytes.length))
