@@ -2,6 +2,7 @@ package lzw.bytes
 
 import lzw.bits.BitStringDecoder
 import lzw.core.LzwEncoder
+import scala.collection.mutable
 
 class LzwByteEncoder(options: Options) {
 
@@ -18,28 +19,32 @@ class LzwByteEncoder(options: Options) {
   }
 
   def encode(bytes: Array[Byte]): Array[Byte] =
-    stats.countEncodedBytes(
-      lzwEncoder.encode(bytes.toIndexedSeq)
-        .toArray
-        .flatMap(bitsDecoder.decode)
-    )
+    stats.countEncodedBytes {
+      val buffer = mutable.Buffer.empty[Byte]
+      for (bitString <- lzwEncoder.encode(bytes.toIndexedSeq)) {
+        buffer.appendAll(bitsDecoder.decode(bitString))
+      }
+      buffer.toArray
+    }
 
   def reset(): Array[Byte] =
-    stats.countEncodedBytes(
-      lzwEncoder.reset()
-        .toArray
-        .flatMap(bitsDecoder.decode)
-    )
+    stats.countEncodedBytes {
+      val buffer = mutable.Buffer.empty[Byte]
+      for (bitString <- lzwEncoder.reset()) {
+        buffer.appendAll(bitsDecoder.decode(bitString))
+      }
+      buffer.toArray
+    }
 
   def finish(): Array[Byte] =
     stats.countEncodedBytes {
-      val remainingBytes = lzwEncoder.finish()
-        .toArray
-        .flatMap(bitsDecoder.decode)
+      val buffer = mutable.Buffer.empty[Byte]
+      for (bitString <- lzwEncoder.finish()) {
+        buffer.appendAll(bitsDecoder.decode(bitString))
+      }
+      buffer.appendAll(bitsDecoder.finish())
 
-      val lastByteOption = bitsDecoder.finish()
-
-      remainingBytes ++ lastByteOption
+      buffer.toArray
     }
 
   def statistics: Statistics = {
