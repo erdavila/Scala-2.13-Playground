@@ -46,7 +46,15 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
   def decode(codesBitStrings: Seq[BitString]): Seq[Sym] = {
     require(codesBitStrings.forall(_.length > 0))
-    val symbols = matchCodes(codesBitStrings, Vector.empty)
+
+    val symbolBuffer = mutable.Buffer.empty[Sym]
+    for ((codeBitString, i) <- codesBitStrings.view.zipWithIndex) {
+      if (_stopped) throw ExceedingCodesException(symbolBuffer.toVector, codesBitStrings.size - i)
+      val newOutput = matchCode(codeBitString)
+      symbolBuffer.appendAll(newOutput)
+    }
+    val symbols = symbolBuffer.toVector
+
     stats.count(codesBitStrings, symbols)
     symbols
   }
@@ -56,17 +64,6 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     stats.count(Seq(codeBitString), symbols)
     symbols
   }
-
-  @tailrec
-  private def matchCodes(codesBitStrings: Seq[BitString], output: Seq[Sym]): Seq[Sym] =
-    codesBitStrings match {
-      case _ +: _ if _stopped =>
-        throw ExceedingCodesException(output, codesBitStrings.size)
-      case codeBitString +: remainingCodesBitStrings =>
-        val newOutput = matchCode(codeBitString)
-        matchCodes(remainingCodesBitStrings, output ++ newOutput)
-      case _ => output
-    }
 
   private def matchCode(codeBitString: BitString): Seq[Sym] = {
     require(codeBitString.length == width, s"expected code with length $width instead of ${codeBitString.length}")
