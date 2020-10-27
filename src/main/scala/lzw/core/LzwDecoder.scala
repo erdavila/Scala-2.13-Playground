@@ -7,13 +7,14 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 class LzwDecoder[Sym](val options: Options[Sym]) {
+  private val NoCode: Code = -1
 
-  private val dictionary: mutable.Map[Code, Seq[Sym]] = mutable.Map.empty
+  private val dictionary: mutable.Map[Code, (Code, Sym)] = mutable.Map.empty
   private var width = -1
   private var widthIncreaseCode: Code = _
   private var isMaxCodeWidthExhausted: Boolean = _
   private var _nextCode: Code = _
-  private var lastOutputOption: Option[Seq[Sym]] = _
+  private var previousInputCodeOption: Option[Code] = _
   private var _stopped: Boolean = false
 
   private object stats {
@@ -38,9 +39,9 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     widthIncreaseCode = 1 << width
     isMaxCodeWidthExhausted = false
     for (symbol <- options.alphabet) {
-      addToDictionary(Vector(symbol))
+      addToDictionary((NoCode, symbol))
     }
-    lastOutputOption = None
+    previousInputCodeOption = None
   }
 
   def decode(codesBitStrings: Seq[BitString]): Seq[Sym] = {
@@ -71,12 +72,14 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
     require(codeBitString.length == width, s"expected code with length $width instead of ${codeBitString.length}")
     val code = toCode(codeBitString)
     dictionary.get(code) match {
-      case Some(newOutput) =>
-        for (lastOutput <- lastOutputOption) {
-          addToDictionary(lastOutput :+ newOutput.head)
+      case Some((prefixCode, symbol)) =>
+        val newOutput = toSymbols(prefixCode, symbol :: Nil)
+
+        for (previousInputCode <- previousInputCodeOption) {
+          addToDictionary((previousInputCode, newOutput.head))
         }
 
-        lastOutputOption = Some(newOutput)
+        previousInputCodeOption = Some(code)
         newOutput
 
       case None if options.clearCode.contains(code) =>
@@ -89,12 +92,13 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
 
       case None =>
         assert(code == _nextCode)
-        val lastOutput = lastOutputOption.get
-        val newOutput = lastOutput :+ lastOutput.head
+        val previousInput = previousInputCodeOption.get
+        val previousOutput = toSymbols(previousInput)
+        val newOutput = (previousOutput.view :+ previousOutput.head).toVector
 
-        addToDictionary(newOutput)
+        addToDictionary((previousInput, previousOutput.head))
 
-        lastOutputOption = Some(newOutput)
+        previousInputCodeOption = Some(code)
         newOutput
     }
   }
@@ -109,10 +113,19 @@ class LzwDecoder[Sym](val options: Options[Sym]) {
       .getInt(0)
   }
 
-  private def addToDictionary(symbols: Seq[Sym]): Unit =
+  @tailrec
+  private def toSymbols(code: Code, symbols: List[Sym] = Nil): List[Sym] =
+    if (code == NoCode) {
+      symbols
+    } else {
+      val (nextCode, symbol) = dictionary(code)
+      toSymbols(nextCode, symbol :: symbols)
+    }
+
+  private def addToDictionary(codeAndSymbol: (Code, Sym)): Unit =
     if (options.maxDictionarySize.forall(dictionary.sizeIs < _)) {
       for (code <- nextCode) {
-        dictionary.put(code, symbols)
+        dictionary.put(code, codeAndSymbol)
       }
     }
 

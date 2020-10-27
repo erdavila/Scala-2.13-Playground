@@ -309,6 +309,41 @@ object Fixtures {
       b101  | XoXo   | b111: oXoX |
       b101  | XoXo   | *AT MAX*
       b101  | XoXo
+
+
+      *************** DECODING ***************
+      Input | Output   | Dict         | Width
+      ------+----------+--------------+------
+            |          | b0: -,X      |
+            |          | b1: -,o      | 2
+      b00   | X        |              |
+      b01   | o        | b10: b0,o    | 3
+      b010  | ! b0,o   |              |
+            | ! -,Xo   |              |
+            | Xo       | b11: b1,X    |
+      b100  | ?        | b100: ?      |
+            | ! b10,*  |              |
+            | ! b0,o*  |              |
+            | ! -,Xo*  |              |
+            | ! Xo*    |              |
+            | XoX      | b100: b10,X  |
+      b011  | ! b1,X   |              |
+            | ! -,oX   |              |
+            | oX       | b101: b100,o |
+      b110  | ?        | b110: ?      |
+            | ! b11,*  |              |
+            | ! b1,X*  |              |
+            | ! -,oX*  |              |
+            | oXo      | b110: b11,o  | 3
+      b101  | ! b100,o |              |
+            | ! b10,Xo |              |
+            | ! b0,oXo |              |
+            | ! -,XoXo |              |
+            | XoXo     | b111: b110,X |
+      b101  | ...      |              |
+            | XoXo     | *AT MAX*     |
+      b101  | ...      |              |
+            | XoXo     | *AT MAX*     |
      */
     Seq(
       Encode(
