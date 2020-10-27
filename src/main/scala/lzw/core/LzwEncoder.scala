@@ -5,15 +5,11 @@ import lzw.core.LzwEncoder.Statistics
 import scala.collection.mutable
 
 class LzwEncoder[Sym](val options: Options[Sym]) {
+  private val NoCode: Code = -1
 
-  private val dictionary: mutable.Map[Seq[Sym], Code] = mutable.Map.empty
-
+  private val dictionary: mutable.Map[(Code, Sym), Code] = mutable.Map.empty
   private var codeProducer: CodeProducer = _
-
-  private object currentMatch {
-    var symbols: Vector[Sym] = _
-    var code: Code = _
-  }
+  private var currentMatchCode: Code = _
 
   private object stats {
     var inputSymbols: Int = 0
@@ -33,11 +29,10 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
     dictionary.clear()
     codeProducer = new CodeProducer(options.codeWidth, options.clearCode.toSeq ++ options.stopCode)
     for (symbol <- options.alphabet) {
-      addToDict(Vector(symbol))
+      addToDict((NoCode, symbol))
     }
 
-    currentMatch.symbols = Vector.empty
-    currentMatch.code = -1
+    currentMatchCode = NoCode
   }
 
   def encode(symbols: Seq[Sym]): Seq[BitString] = {
@@ -53,29 +48,26 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
   }
 
   private def matchSymbol(symbol: Sym): Option[BitString] = {
-    val tentativeMatchedSymbols = currentMatch.symbols :+ symbol
-    dictionary.get(tentativeMatchedSymbols) match {
+    val tentativeCodeAndSymbol = (currentMatchCode, symbol)
+    dictionary.get(tentativeCodeAndSymbol) match {
       case Some(code) =>
-        currentMatch.symbols = tentativeMatchedSymbols
-        currentMatch.code = code
+        currentMatchCode = code
         None
       case None =>
-        assert(tentativeMatchedSymbols.sizeIs >= 2)
-        assert(currentMatch.symbols.nonEmpty)
+        assert(currentMatchCode != NoCode)
 
-        val newOutput = codeProducer.toBitString(currentMatch.code)
+        val newOutput = codeProducer.toBitString(currentMatchCode)
 
-        addToDict(tentativeMatchedSymbols)
+        addToDict(tentativeCodeAndSymbol)
 
-        currentMatch.symbols = Vector(symbol)
-        currentMatch.code = dictionary(currentMatch.symbols)
+        currentMatchCode = dictionary((NoCode, symbol))
 
         Some(newOutput)
     }
   }
 
-  private def addToDict(symbols: Vector[Sym]): Unit =
-    withNextCode { dictionary.put(symbols, _) }
+  private def addToDict(codeAndSymbol: (Code, Sym)): Unit =
+    withNextCode { dictionary.put(codeAndSymbol, _) }
 
   def finish(): Seq[BitString] = {
     val flushed = flush().toSeq
@@ -108,8 +100,8 @@ class LzwEncoder[Sym](val options: Options[Sym]) {
     }
 
   private def flush(): Option[BitString] =
-    Option.when(currentMatch.symbols.nonEmpty) {
-      codeProducer.toBitString(currentMatch.code)
+    Option.when(currentMatchCode != NoCode) {
+      codeProducer.toBitString(currentMatchCode)
     }
 
   private def forceCodeWithEvaluation(): Unit =
