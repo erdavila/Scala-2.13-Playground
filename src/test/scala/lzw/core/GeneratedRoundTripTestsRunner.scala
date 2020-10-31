@@ -11,13 +11,29 @@ object GeneratedRoundTripTestsRunner {
   private def alphabetSizes(inputSize: Int): Range = 1 until (inputSize + 4)
 
   def main(args: Array[String]): Unit = {
+    case class Opts(repeat: Int, limit: Int)
+
+    @tailrec
+    def processArgs(args: List[String], opts: Opts): Opts =
+      args match {
+        case "--repeat" :: value :: rest => processArgs(rest, opts.copy(repeat = value.toInt))
+        case "--limit" :: value :: rest => processArgs(rest, opts.copy(limit = value.toInt))
+        case opt :: _ => throw new IllegalArgumentException(s"Unknown option or option missing parameter: $opt")
+        case Nil => opts
+      }
+
+    val opts = processArgs(args.toList, Opts(repeat = 1, limit = Int.MaxValue))
+    run(opts.repeat, opts.limit)
+  }
+
+  def run(repeat: Int, limit: Int): Unit = for (_ <- 1 to repeat) {
     val threadCount = math.max(Runtime.getRuntime.availableProcessors() - 2, 1)
     val taskRunner = new TaskRunner(threadCount)
 
     var progressPrefix: String = ""
     val progress = new ProgressDisplay(taskRunner.processedTasksCount, Some(() => progressPrefix), None)
     try {
-      for (((options, inputSymbolsParts), index) <- casesIterator.zipWithIndex) {
+      for (((options, inputSymbolsParts), index) <- casesIterator.take(limit).zipWithIndex) {
         val inputSize = inputSymbolsParts.view.map(_.size).sum
         progressPrefix = s"$inputSize->${InputSizes.last} ${options.alphabet.size}->${alphabetSizes(inputSize).last}"
 
